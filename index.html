@@ -154,6 +154,16 @@
                     <input type="file" accept=".pdf" class="form-input" id="pdfFile" onchange="processPDF(this)">
                 </div>
                 <div id="importLoading" style="display:none" class="loading">Procesando PDF...</div>
+                <div id="importTextFallback" style="display:none">
+                    <div style="background:#fff3cd;padding:12px;border-radius:8px;margin-bottom:15px;font-size:.85em">
+                        ⚠️ <strong>El PDF es una imagen</strong> y no se puede leer automáticamente.<br>
+                        Abrí el PDF, seleccioná todo el texto (Ctrl+A), copialo (Ctrl+C) y pegalo acá:
+                    </div>
+                    <div class="form-group">
+                        <textarea class="form-input" id="importTextArea" rows="8" placeholder="Pegá el texto del resumen acá..." style="font-size:.85em"></textarea>
+                    </div>
+                    <button class="btn btn-import" onclick="processTextImport()">📋 Procesar Texto</button>
+                </div>
                 <div id="importPreview" style="display:none"></div>
                 <button id="importConfirmBtn" class="btn btn-import" onclick="confirmImport()" style="display:none">✅ Importar Gastos</button>
             </div>
@@ -479,6 +489,7 @@ async function processPDF(input){
     document.getElementById('importLoading').style.display='block';
     document.getElementById('importPreview').style.display='none';
     document.getElementById('importConfirmBtn').style.display='none';
+    document.getElementById('importTextFallback').style.display='none';
     try{
         const ab=await file.arrayBuffer();
         const pdf=await pdfjsLib.getDocument({data:ab}).promise;
@@ -486,10 +497,19 @@ async function processPDF(input){
         for(let i=1;i<=pdf.numPages;i++){
             const page=await pdf.getPage(i);
             const tc=await page.getTextContent();
-            fullText+=tc.items.map(it=>it.str).join(' ')+'\n';
+            fullText+=tc.items.map(it=>it.str).join('\n')+'\n';
+        }
+        if(fullText.replace(/\s/g,'').length<50){
+            document.getElementById('importLoading').style.display='none';
+            document.getElementById('importTextFallback').style.display='block';
+            return;
         }
         const result=parsePDFText(fullText);
-        if(result.items.length===0){alert('No se encontraron consumos en el PDF');document.getElementById('importLoading').style.display='none';return}
+        if(result.items.length===0){
+            document.getElementById('importLoading').style.display='none';
+            document.getElementById('importTextFallback').style.display='block';
+            return;
+        }
         pendingImport=result.items;
         showImportPreview(result);
     }catch(e){
@@ -498,72 +518,96 @@ async function processPDF(input){
     document.getElementById('importLoading').style.display='none';
 }
 
+function processTextImport(){
+    const text=document.getElementById('importTextArea').value;
+    if(!text||text.length<20){alert('Pega el texto del resumen');return}
+    const result=parsePDFText(text);
+    if(result.items.length===0){alert('No se encontraron consumos');return}
+    pendingImport=result.items;
+    showImportPreview(result);
+    document.getElementById('importTextFallback').style.display='none';
+}
+
 function parsePDFText(text){
     let bank='',card='Visa',vencimiento='',items=[];
-    // Detect bank
-    if(/galicia/i.test(text)){bank='Galicia'}
-    else if(/macro/i.test(text)||/limache/i.test(text)){bank='Macro'}
-    else{bank='Otro'}
-    // Detect card
+    if(/galicia/i.test(text))bank='Galicia';
+    else if(/macro|limache|PLATINUM/i.test(text))bank='Macro';
+    else bank='Otro';
     if(/amex|american express/i.test(text))card='Amex';
-    // Detect vencimiento
-    const vtoMatch=text.match(/VENCIMIENTO\s+(\d{2}[\s-]?\w+[\s-]?\d{2,4})/i)||text.match(/Vencimiento actual.*?(\d{2}-\w{3}-\d{2})/i);
-    if(vtoMatch)vencimiento=vtoMatch[1];
-    // Parse consumos
+    const vtoMatch=text.match(/VENCIMIENTO\s+(\d{2}\s*[-\s]\s*\w+\s*[-\s]\s*\d{2,4})/i)||text.match(/01-Jun-26/);
+    if(vtoMatch)vencimiento=vtoMatch[1]||vtoMatch[0];
     if(bank==='Galicia')items=parseGalicia(text);
     else if(bank==='Macro')items=parseMacro(text);
+    else items=parseGeneric(text);
     items.forEach(it=>{it.bank=bank;it.card=card;it.category=categorize(it.description)});
     return{bank,card,vencimiento,items};
 }
 
 function parseGalicia(text){
     const items=[];
-    // Pattern: DD-MM-YY * DESCRIPTION CUOTA COMPROBANTE AMOUNT
-    const lines=text.split('\n');
-    const fullText=lines.join(' ');
-    // Match fecha + referencia + monto pattern
-    const regex=/(\d{2}-\d{2}-\d{2})\s+[*KF]\s+([\w\s.\-\/,()#:*]+?)\s+(\d{2}\/\d{2}\s+)?(\d{6})\s+([\d.,]+)/g;
-    let match;
-    while((match=regex.exec(fullText))!==null){
-        const dateStr=match[1];
-        const desc=match[2].trim().replace(/\s+/g,' ');
-        const cuotaStr=match[3]?.trim()||'';
-        const amount=parseFloat(match[5].replace(/\./g,'').replace(',','.'));
+    const lines=text.split('\n').map(l=>l.trim()).filter(l=>l);
+    for(let i=0;i<lines.length-2;i++){
+        const dateMatch=lines[i].match(/^(\d{2})-(\d{2})-(\d{2})$/);
+        if(!dateMatch)continue;
+        const flag=lines[i+1];
+        if(!/^[*KF]$/.test(flag))continue;
+        const desc=(lines[i+2]||'').replace(/\s+/g,' ').trim();
+        if(!desc)continue;
+        if(/IIBB|IVA|DB\.RG|PERCEP|DEV\.IMP|SU PAGO|SALDO|TOTAL.*Consumos|TARJETA.*Total/i.test(desc))continue;
+        let cuota='',amount=0,j=i+3;
+        while(j<lines.length&&j<i+8){
+            const line=lines[j].trim();
+            if(/^\d{2}\/\d{2}$/.test(line)){cuota=line;j++;continue}
+            if(/^\d{6}$/.test(line)){j++;continue}
+            if(/^[\d]+[.,][\d]{2}$/.test(line.replace(/\./g,'X').replace(/,/g,'.'))){
+                amount=parseFloat(line.replace(/\./g,'').replace(',','.'));break;
+            }
+            if(/^[\d.,]+$/.test(line)&&line.includes(',')){
+                amount=parseFloat(line.replace(/\./g,'').replace(',','.'));break;
+            }
+            j++;
+        }
         if(amount<=0||isNaN(amount))continue;
-        if(/IIBB|IVA|DB\.RG|PERCEP|DEV\.IMP|SU PAGO|SALDO/i.test(desc))continue;
         let installment=1,totalInstallments=1;
-        if(cuotaStr){const parts=cuotaStr.split('/');installment=parseInt(parts[0]);totalInstallments=parseInt(parts[1])}
-        const[d,m,y]=dateStr.split('-');
+        if(cuota){const p=cuota.split('/');installment=parseInt(p[0]);totalInstallments=parseInt(p[1])}
+        const d=dateMatch[1],m=dateMatch[2],y=dateMatch[3];
         const date=`20${y}-${m}-${d}`;
-        items.push({id:Date.now()+Math.random()*10000,description:desc,amount,date,installment,totalInstallments,
-            dueMonth:date.substring(0,7)});
+        items.push({id:Date.now()+Math.random()*10000,description:desc.substring(0,60),amount,date,
+            installment,totalInstallments,dueMonth:date.substring(0,7)});
     }
     return items;
 }
 
 function parseMacro(text){
     const items=[];
-    // Macro format: DD Mes YY COMPROBANTE * DESCRIPTION C.XX/YY AMOUNT
-    const regex=/(\d{2}\s+\w+)\s+(\d{2})\s+(\d+)\s+\*\s+([\w\s.*\-\/,()#:]+?)\s+(?:C\.(\d{2})\/(\d{2})\s+)?([\d.,]+)/g;
+    const months={Enero:'01',Febrero:'02',Marzo:'03',Abril:'04',Mayo:'05',Junio:'06',
+        Julio:'07',Agosto:'08',Setiembre:'09',Septiembre:'09',Octubre:'10',Noviembre:'11',Diciembre:'12'};
+    const regex=/(\d{2})\s+(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Setiembre|Septiembre|Octubre|Noviembre|Diciembre)\s+(\d{2})\s+(\d+)\s+\*\s+([\s\S]*?)(?:C\.(\d{2})\/(\d{2}))?\s+([\d.,]+)/gi;
     let match;
-    const months={Enero:'01',Febrero:'02',Marzo:'03',Abril:'04',Mayo:'05',Junio:'06',Julio:'07',Agosto:'08',Setiembre:'09',Septiembre:'09',Octubre:'10',Noviembre:'11',Diciembre:'12'};
     while((match=regex.exec(text))!==null){
-        const dateRaw=match[1];
-        const year='20'+match[2];
-        const desc=match[4].trim().replace(/\s+/g,' ');
-        const amount=parseFloat(match[7].replace(/\./g,'').replace(',','.'));
+        const day=match[1],monthName=match[2],year='20'+match[3];
+        const desc=match[5].trim().replace(/\s+/g,' ').substring(0,60);
+        const amount=parseFloat(match[8].replace(/\./g,'').replace(',','.'));
         if(amount<=0||isNaN(amount))continue;
         if(/PAGO EN|SALDO/i.test(desc))continue;
         let installment=1,totalInstallments=1;
-        if(match[5]){installment=parseInt(match[5]);totalInstallments=parseInt(match[6])}
-        // Parse date
-        const dateParts=dateRaw.split(/\s+/);
-        const day=dateParts[0].padStart(2,'0');
-        const monthName=dateParts[1];
+        if(match[6]){installment=parseInt(match[6]);totalInstallments=parseInt(match[7])}
         const mo=months[monthName]||'01';
         const date=`${year}-${mo}-${day}`;
-        items.push({id:Date.now()+Math.random()*10000,description:desc,amount,date,installment,totalInstallments,
-            dueMonth:date.substring(0,7)});
+        items.push({id:Date.now()+Math.random()*10000,description:desc,amount,date,
+            installment,totalInstallments,dueMonth:date.substring(0,7)});
+    }
+    return items;
+}
+
+function parseGeneric(text){
+    const items=[];
+    const regex=/(\d{2}[-\/]\d{2}[-\/]\d{2,4})\s+.*?([\d]+[.,][\d]{2})/g;
+    let match;
+    while((match=regex.exec(text))!==null){
+        const dateStr=match[1];const amount=parseFloat(match[2].replace(/\./g,'').replace(',','.'));
+        if(amount>0)items.push({id:Date.now()+Math.random()*10000,description:'Consumo',amount,date:dateStr,
+            installment:1,totalInstallments:1,dueMonth:''});
     }
     return items;
 }
