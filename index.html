@@ -491,6 +491,12 @@
             <div id="transactionsList"></div>
         </div>
 
+        <!-- PROYECCIÓN -->
+        <div id="projectionScreen" class="screen">
+            <h2 style="margin-bottom: 20px; margin-top: 20px;">📅 Proyección de Cuotas</h2>
+            <div id="projectionSummary"></div>
+        </div>
+
         <!-- STATS -->
         <div id="statsScreen" class="screen">
             <h2 style="margin-bottom: 20px; margin-top: 20px;">📊 Estadísticas</h2>
@@ -518,6 +524,10 @@
             <span class="nav-icon">📋</span>
             <span>Movimientos</span>
         </button>
+        <button class="nav-item" onclick="showScreen('projection', event)">
+            <span class="nav-icon">📅</span>
+            <span>Proyección</span>
+        </button>
         <button class="nav-item" onclick="showScreen('stats', event)">
             <span class="nav-icon">📊</span>
             <span>Stats</span>
@@ -526,6 +536,23 @@
             <span class="nav-icon">⚙️</span>
             <span>Ajustes</span>
         </button>
+    </div>
+
+    <!-- MODAL AJUSTES TARJETAS -->
+    <div id="cardSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="cardSettingsTitle">Configurar Tarjeta</div>
+                <button class="modal-close" onclick="closeModal('cardSettingsModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Fecha de Vencimiento</label>
+                    <input type="date" class="form-input" id="cardDueDateInput" placeholder="Día de pago">
+                </div>
+                <button class="btn btn-primary" onclick="saveCardDueDate()">Guardar Fecha</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL GASTO -->
@@ -742,6 +769,7 @@
             const screenMap = {
                 'home': 'homeScreen',
                 'transactions': 'transactionsScreen',
+                'projection': 'projectionScreen',
                 'stats': 'statsScreen',
                 'settings': 'settingsScreen'
             };
@@ -750,9 +778,12 @@
             if (event) event.target.closest('.nav-item').classList.add('active');
             
             if (screenName === 'transactions') renderTransactions();
+            if (screenName === 'projection') renderProjection();
             if (screenName === 'stats') renderStats();
             if (screenName === 'settings') renderCardSettings();
         }
+
+        let currentEditingCard = null;
 
         function saveExpense() {
             const amount = parseFloat(document.getElementById('expenseAmount').value);
@@ -934,6 +965,7 @@
                                     <div class="card-config-label">${BANKS[bank].name} - ${card}</div>
                                     <div class="card-config-value">${config.dueDate ? new Date(config.dueDate).toLocaleDateString('es-AR') : 'No configurado'}</div>
                                 </div>
+                                <button class="card-config-btn" onclick="editCardDueDate('${key}')">Editar</button>
                             </div>
                         </div>
                     `;
@@ -941,6 +973,72 @@
             `;
             
             document.getElementById('cardSettings').innerHTML = html;
+        }
+
+        function editCardDueDate(cardKey) {
+            currentEditingCard = cardKey;
+            const [bank, card] = cardKey.split('-');
+            const config = data.cardConfigs[cardKey];
+            
+            document.getElementById('cardSettingsTitle').textContent = `${BANKS[bank].name} - ${card}`;
+            document.getElementById('cardDueDateInput').value = config.dueDate || '';
+            showModal('cardSettingsModal');
+        }
+
+        function saveCardDueDate() {
+            const dueDate = document.getElementById('cardDueDateInput').value;
+            
+            if (currentEditingCard && dueDate) {
+                data.cardConfigs[currentEditingCard].dueDate = dueDate;
+                saveData();
+                renderCardSettings();
+                closeModal('cardSettingsModal');
+            } else {
+                alert('Selecciona una fecha');
+            }
+        }
+
+        function renderProjection() {
+            // Agrupar gastos por banco/tarjeta y calcular cuotas
+            const projections = {};
+            
+            data.expenses.forEach(expense => {
+                const key = `${expense.bank}-${expense.card}`;
+                if (!projections[key]) {
+                    projections[key] = {
+                        bank: expense.bank,
+                        card: expense.card,
+                        expenses: [],
+                        nextDueDate: data.cardConfigs[key]?.dueDate
+                    };
+                }
+                projections[key].expenses.push(expense);
+            });
+
+            let html = '<div style="margin-bottom: 20px;">';
+            
+            if (Object.keys(projections).length === 0) {
+                html = '<div class="empty-state"><div class="empty-icon">📅</div>Sin cuotas pendientes</div>';
+            } else {
+                Object.entries(projections).forEach(([key, proj]) => {
+                    const monthlyAmount = proj.expenses.reduce((sum, e) => sum + e.amount, 0);
+                    const nextDue = proj.nextDueDate ? new Date(proj.nextDueDate).toLocaleDateString('es-AR') : 'No configurado';
+                    
+                    html += `
+                        <div class="stat-card" style="--color-from: #667eea; --color-to: #764ba2; margin-bottom: 15px;">
+                            <div class="stat-label">${BANKS[proj.bank].name} ${proj.card}</div>
+                            <div class="stat-amount" style="font-size: 1.8em; margin-bottom: 10px;">$${monthlyAmount.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+                            <div style="font-size: 0.9em; opacity: 0.9;">
+                                📅 Vence: ${nextDue}<br>
+                                📊 ${proj.expenses.length} gasto(s)
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            document.getElementById('projectionSummary').innerHTML = html;
         }
 
         function deleteTransaction(id, type) {
