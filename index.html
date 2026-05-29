@@ -513,7 +513,7 @@ async function processPDF(input){
         pendingImport=result.items;
         showImportPreview(result);
     }catch(e){
-        alert('Error al leer el PDF: '+e.message);
+        alert('Error: '+e.message);
     }
     document.getElementById('importLoading').style.display='none';
 }
