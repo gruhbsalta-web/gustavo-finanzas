@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mis Finanzas">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="Gestión de finanzas personales">
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>💰</text></svg>">
+    
+    <title>Mis Finanzas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            padding-bottom: 80px;
+            overflow-x: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding-top: max(20px, env(safe-area-inset-top));
+        }
+        
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+        
+        .balance {
+            background: rgba(255,255,255,0.15);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .balance-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .balance-amount {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .balance-detail {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9em;
+        }
+        
+        .content {
+            max-width: 100%;
+            padding: 0 20px;
+        }
+        
+        .screen {
+            display: none;
+            animation: slideIn 0.3s;
+            padding: 20px 0;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1em;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.2s;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .action-btn.expense {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .action-btn.income {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .action-icon {
+            font-size: 2.5em;
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            background: white;
+            border-top: 1px solid #eee;
+            z-index: 200;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .nav-item {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.75em;
+            color: #999;
+            transition: color 0.2s;
+        }
+        
+        .nav-item.active {
+            color: #667eea;
+        }
+        
+        .nav-icon {
+            font-size: 1.8em;
+            display: block;
+            margin-bottom: 2px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 300;
+            justify-content: flex-end;
+        }
+        
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { background: rgba(0,0,0,0); }
+            to { background: rgba(0,0,0,0.5); }
+        }
+        
+        .modal-content {
+            background: white;
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 20px 20px 0 0;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            top: 0;
+            background: white;
+        }
+        
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+        
+        .form-input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        
+        .form-input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .btn:active {
+            opacity: 0.8;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-income {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .transaction-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .transaction-info {
+            flex: 1;
+        }
+        
+        .transaction-desc {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .transaction-meta {
+            font-size: 0.85em;
+            color: #999;
+        }
+        
+        .transaction-amount {
+            font-weight: 600;
+            margin-left: 10px;
+            min-width: 80px;
+            text-align: right;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 0.95em;
+        }
+        
+        .empty-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--color-from) 0%, var(--color-to) 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .stat-amount {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .bank-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .bank-option {
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .bank-option:active {
+            transform: scale(0.95);
+        }
+
+        .bank-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+            color: #667eea;
+        }
+
+        .card-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .card-option {
+            padding: 12px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .card-option:active {
+            transform: scale(0.95);
+        }
+
+        .card-option.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+            color: #667eea;
+        }
+
+        .section-title {
+            font-size: 1em;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+            color: #333;
+        }
+
+        .card-config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .card-config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .card-config-item:last-child {
+            border-bottom: none;
+        }
+
+        .card-config-label {
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .card-config-value {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .card-config-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💰 Mis Finanzas</h1>
+        <div class="balance">
+            <div class="balance-label">Balance del mes</div>
+            <div class="balance-amount" id="monthBalance">$0</div>
+            <div class="balance-detail">
+                <span>Ingresos: <strong id="headerIncome">$0</strong></span>
+                <span>Gastos: <strong id="headerExpense">$0</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- HOME -->
+        <div id="homeScreen" class="screen active">
+            <div class="quick-actions">
+                <button class="action-btn expense" onclick="showModal('expenseModal')">
+                    <div class="action-icon">➖</div>
+                    <div>Gasto</div>
+                </button>
+                <button class="action-btn income" onclick="showModal('incomeModal')">
+                    <div class="action-icon">➕</div>
+                    <div>Ingreso</div>
+                </button>
+            </div>
+            <div id="recentTransactions"></div>
+        </div>
+
+        <!-- MOVIMIENTOS -->
+        <div id="transactionsScreen" class="screen">
+            <h2 style="margin-bottom: 20px; margin-top: 20px;">📋 Movimientos</h2>
+            <div id="transactionsList"></div>
+        </div>
+
+        <!-- STATS -->
+        <div id="statsScreen" class="screen">
+            <h2 style="margin-bottom: 20px; margin-top: 20px;">📊 Estadísticas</h2>
+            <div id="statsSummary"></div>
+        </div>
+
+        <!-- AJUSTES -->
+        <div id="settingsScreen" class="screen">
+            <h2 style="margin-bottom: 20px; margin-top: 20px;">⚙️ Ajustes</h2>
+            <div id="cardSettings"></div>
+            <div style="margin-top: 30px;">
+                <button class="btn btn-primary" onclick="exportData()" style="margin-bottom: 15px;">📤 Exportar CSV</button>
+                <button class="btn" style="background: #f5576c; color: white;" onclick="if(confirm('¿Estás seguro?')) deleteAllData()">🗑️ Borrar todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="showScreen('home', event)">
+            <span class="nav-icon">🏠</span>
+            <span>Inicio</span>
+        </button>
+        <button class="nav-item" onclick="showScreen('transactions', event)">
+            <span class="nav-icon">📋</span>
+            <span>Movimientos</span>
+        </button>
+        <button class="nav-item" onclick="showScreen('stats', event)">
+            <span class="nav-icon">📊</span>
+            <span>Stats</span>
+        </button>
+        <button class="nav-item" onclick="showScreen('settings', event)">
+            <span class="nav-icon">⚙️</span>
+            <span>Ajustes</span>
+        </button>
+    </div>
+
+    <!-- MODAL GASTO -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Nuevo Gasto</div>
+                <button class="modal-close" onclick="closeModal('expenseModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Monto</label>
+                    <input type="number" class="form-input" id="expenseAmount" placeholder="0.00" step="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-input" id="expenseDesc" placeholder="¿En qué gastaste?">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-input" id="expenseCategory">
+                        <option value="Alimentación">🍔 Alimentación</option>
+                        <option value="Transporte">🚗 Transporte</option>
+                        <option value="Servicios">💡 Servicios</option>
+                        <option value="Entretenimiento">🎬 Entretenimiento</option>
+                        <option value="Salud">💊 Salud</option>
+                        <option value="Otros">📦 Otros</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Banco/Tarjeta</label>
+                    <div class="bank-selector" id="bankSelector"></div>
+                    <div class="card-selector" id="cardSelector" style="display: none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" class="form-input" id="expenseDate">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Fecha de Vencimiento</label>
+                    <input type="date" class="form-input" id="expenseDueDate" placeholder="Fecha de pago">
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveExpense()">Guardar Gasto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL INGRESO -->
+    <div id="incomeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Nuevo Ingreso</div>
+                <button class="modal-close" onclick="closeModal('incomeModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Monto</label>
+                    <input type="number" class="form-input" id="incomeAmount" placeholder="0.00" step="0.01">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-input" id="incomeDesc" placeholder="¿De dónde viene?">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-input" id="incomeCategory">
+                        <option value="Sueldo">💼 Sueldo</option>
+                        <option value="Freelance">💻 Freelance</option>
+                        <option value="Inversiones">📈 Inversiones</option>
+                        <option value="Otros">💰 Otros</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" class="form-input" id="incomeDate">
+                </div>
+                
+                <button class="btn btn-income" onclick="saveIncome()">Guardar Ingreso</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BANKS = {
+            'Galicia': {
+                name: '🏦 Galicia',
+                cards: ['Visa', 'Amex']
+            },
+            'Macro': {
+                name: '🏦 Macro',
+                cards: ['Visa', 'Amex']
+            },
+            'Santander': {
+                name: '🏦 Santander',
+                cards: ['Visa', 'Amex']
+            },
+            'Naranja': {
+                name: '🧡 Naranja',
+                cards: ['Naranja']
+            },
+            'MercadoPago': {
+                name: '💳 Mercado Pago',
+                cards: ['Mercado Pago']
+            },
+            'Efectivo': {
+                name: '💵 Efectivo',
+                cards: ['Efectivo']
+            }
+        };
+
+        let data = {
+            version: 2,
+            expenses: [],
+            incomes: [],
+            cardConfigs: {
+                'Galicia-Visa': { dueDate: null },
+                'Galicia-Amex': { dueDate: null },
+                'Macro-Visa': { dueDate: null },
+                'Macro-Amex': { dueDate: null },
+                'Santander-Visa': { dueDate: null },
+                'Santander-Amex': { dueDate: null },
+                'Naranja-Naranja': { dueDate: null },
+                'MercadoPago-MercadoPago': { dueDate: null }
+            }
+        };
+
+        let selectedBank = null;
+        let selectedCard = null;
+
+        function init() {
+            loadData();
+            setDefaultDates();
+            renderBankSelector();
+            updateDashboard();
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('misFinanzasData');
+            if (saved) {
+                try {
+                    const loaded = JSON.parse(saved);
+                    data = {...data, ...loaded};
+                } catch(e) {
+                    console.error('Error loading data:', e);
+                }
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('misFinanzasData', JSON.stringify(data));
+        }
+
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('expenseDate').value = today;
+            document.getElementById('incomeDate').value = today;
+        }
+
+        function renderBankSelector() {
+            const selector = document.getElementById('bankSelector');
+            selector.innerHTML = Object.entries(BANKS).map(([key, bank]) => `
+                <div class="bank-option" onclick="selectBank('${key}')" data-bank="${key}">
+                    ${bank.name}
+                </div>
+            `).join('');
+        }
+
+        function selectBank(bankKey) {
+            selectedBank = bankKey;
+            selectedCard = null;
+
+            document.querySelectorAll('.bank-option').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`[data-bank="${bankKey}"]`).classList.add('selected');
+
+            const cards = BANKS[bankKey].cards;
+            const cardSelector = document.getElementById('cardSelector');
+            cardSelector.style.display = 'grid';
+            cardSelector.innerHTML = cards.map(card => `
+                <div class="card-option" onclick="selectCard('${card}')" data-card="${card}">
+                    ${card === 'Visa' ? '💳 Visa' : card === 'Amex' ? '💳 Amex' : card === 'Naranja' ? '🧡 Naranja' : '💳 ' + card}
+                </div>
+            `).join('');
+        }
+
+        function selectCard(card) {
+            selectedCard = card;
+            document.querySelectorAll('.card-option').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`[data-card="${card}"]`).classList.add('selected');
+        }
+
+        function showModal(modalId) {
+            selectedBank = null;
+            selectedCard = null;
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showScreen(screenName, event) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            const screenMap = {
+                'home': 'homeScreen',
+                'transactions': 'transactionsScreen',
+                'stats': 'statsScreen',
+                'settings': 'settingsScreen'
+            };
+            
+            document.getElementById(screenMap[screenName]).classList.add('active');
+            if (event) event.target.closest('.nav-item').classList.add('active');
+            
+            if (screenName === 'transactions') renderTransactions();
+            if (screenName === 'stats') renderStats();
+            if (screenName === 'settings') renderCardSettings();
+        }
+
+        function saveExpense() {
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const desc = document.getElementById('expenseDesc').value;
+            const category = document.getElementById('expenseCategory').value;
+            const date = document.getElementById('expenseDate').value;
+            const dueDate = document.getElementById('expenseDueDate').value;
+
+            if (!amount || !desc || !selectedBank || !selectedCard) {
+                alert('Completa todos los campos incluyendo banco y tarjeta');
+                return;
+            }
+
+            data.expenses.push({
+                id: Date.now(),
+                type: 'expense',
+                amount: amount,
+                description: desc,
+                category: category,
+                date: date,
+                bank: selectedBank,
+                card: selectedCard,
+                dueDate: dueDate || date
+            });
+
+            saveData();
+            updateDashboard();
+            closeModal('expenseModal');
+            
+            document.getElementById('expenseAmount').value = '';
+            document.getElementById('expenseDesc').value = '';
+            document.getElementById('expenseDueDate').value = '';
+            setDefaultDates();
+            renderBankSelector();
+            selectedBank = null;
+            selectedCard = null;
+        }
+
+        function saveIncome() {
+            const amount = parseFloat(document.getElementById('incomeAmount').value);
+            const desc = document.getElementById('incomeDesc').value;
+            const category = document.getElementById('incomeCategory').value;
+            const date = document.getElementById('incomeDate').value;
+
+            if (!amount || !desc) {
+                alert('Completa todos los campos');
+                return;
+            }
+
+            data.incomes.push({
+                id: Date.now(),
+                type: 'income',
+                amount: amount,
+                description: desc,
+                category: category,
+                date: date
+            });
+
+            saveData();
+            updateDashboard();
+            closeModal('incomeModal');
+            
+            document.getElementById('incomeAmount').value = '';
+            document.getElementById('incomeDesc').value = '';
+            setDefaultDates();
+        }
+
+        function updateDashboard() {
+            const currentMonth = new Date().toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
+            
+            const expenses = data.expenses.filter(e => {
+                const eMonth = new Date(e.date).toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
+                return eMonth === currentMonth;
+            }).reduce((sum, e) => sum + e.amount, 0);
+
+            const incomes = data.incomes.filter(e => {
+                const eMonth = new Date(e.date).toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
+                return eMonth === currentMonth;
+            }).reduce((sum, e) => sum + e.amount, 0);
+
+            const balance = incomes - expenses;
+
+            document.getElementById('monthBalance').textContent = '$' + balance.toLocaleString('es-AR', {minimumFractionDigits: 2});
+            document.getElementById('headerIncome').textContent = '$' + incomes.toLocaleString('es-AR', {minimumFractionDigits: 2});
+            document.getElementById('headerExpense').textContent = '$' + expenses.toLocaleString('es-AR', {minimumFractionDigits: 2});
+
+            renderRecent();
+        }
+
+        function renderRecent() {
+            const allTransactions = [
+                ...data.expenses.map(e => ({...e, type: 'expense'})),
+                ...data.incomes.map(e => ({...e, type: 'income'}))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+
+            const html = allTransactions.length === 0 
+                ? '<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
+                : '<div><h3 style="margin-bottom: 15px;">Movimientos recientes</h3>' + 
+                  allTransactions.map(t => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-desc">${t.description}</div>
+                            <div class="transaction-meta">
+                                ${t.bank ? BANKS[t.bank].name : ''}${t.card ? ' • ' + t.card : ''}<br>
+                                ${new Date(t.date).toLocaleDateString('es-AR')}
+                            </div>
+                        </div>
+                        <div class="transaction-amount" style="color: ${t.type === 'expense' ? '#f5576c' : '#00f2fe'};">
+                            ${t.type === 'expense' ? '-' : '+'}$${t.amount.toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                        </div>
+                    </div>
+                  `).join('') + '</div>';
+
+            document.getElementById('recentTransactions').innerHTML = html;
+        }
+
+        function renderTransactions() {
+            const allTransactions = [
+                ...data.expenses.map(e => ({...e, type: 'expense'})),
+                ...data.incomes.map(e => ({...e, type: 'income'}))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const html = allTransactions.length === 0 
+                ? '<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
+                : allTransactions.map(t => `
+                    <div class="transaction-item">
+                        <div class="transaction-info">
+                            <div class="transaction-desc">${t.description}</div>
+                            <div class="transaction-meta">
+                                ${t.category}${t.bank ? ' • ' + BANKS[t.bank].name : ''}${t.card ? ' ' + t.card : ''}<br>
+                                ${new Date(t.date).toLocaleDateString('es-AR')}
+                                ${t.dueDate ? ' → Vence: ' + new Date(t.dueDate).toLocaleDateString('es-AR') : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="transaction-amount" style="color: ${t.type === 'expense' ? '#f5576c' : '#00f2fe'};">
+                                ${t.type === 'expense' ? '-' : '+'}$${t.amount.toLocaleString('es-AR', {minimumFractionDigits: 2})}
+                            </div>
+                            <button onclick="deleteTransaction('${t.id}', '${t.type}')" style="background: none; border: none; color: #ccc; cursor: pointer; font-size: 1.2em; padding: 5px;">🗑️</button>
+                        </div>
+                    </div>
+                  `).join('');
+
+            document.getElementById('transactionsList').innerHTML = html;
+        }
+
+        function renderStats() {
+            const totalExpenses = data.expenses.reduce((sum, e) => sum + e.amount, 0);
+            const totalIncomes = data.incomes.reduce((sum, e) => sum + e.amount, 0);
+            const balance = totalIncomes - totalExpenses;
+
+            const html = `
+                <div class="stat-card" style="--color-from: #4facfe; --color-to: #00f2fe;">
+                    <div class="stat-label">💰 Ingresos Total</div>
+                    <div class="stat-amount">$${totalIncomes.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+                </div>
+                <div class="stat-card" style="--color-from: #f093fb; --color-to: #f5576c;">
+                    <div class="stat-label">➖ Gastos Total</div>
+                    <div class="stat-amount">$${totalExpenses.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+                </div>
+                <div class="stat-card" style="--color-from: #667eea; --color-to: #764ba2;">
+                    <div class="stat-label">⚖️ Balance</div>
+                    <div class="stat-amount">$${balance.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
+                </div>
+            `;
+
+            document.getElementById('statsSummary').innerHTML = html;
+        }
+
+        function renderCardSettings() {
+            const html = `
+                <h3 style="margin-bottom: 15px;">Fechas de Vencimiento por Tarjeta</h3>
+                ${Object.entries(data.cardConfigs).map(([key, config]) => {
+                    const [bank, card] = key.split('-');
+                    return `
+                        <div class="card-config">
+                            <div class="card-config-item">
+                                <div>
+                                    <div class="card-config-label">${BANKS[bank].name} - ${card}</div>
+                                    <div class="card-config-value">${config.dueDate ? new Date(config.dueDate).toLocaleDateString('es-AR') : 'No configurado'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+            
+            document.getElementById('cardSettings').innerHTML = html;
+        }
+
+        function deleteTransaction(id, type) {
+            if (confirm('¿Eliminar este movimiento?')) {
+                if (type === 'expense') {
+                    data.expenses = data.expenses.filter(e => e.id != id);
+                } else {
+                    data.incomes = data.incomes.filter(e => e.id != id);
+                }
+                saveData();
+                updateDashboard();
+                renderTransactions();
+            }
+        }
+
+        function exportData() {
+            let csv = 'Tipo,Fecha,Descripción,Categoría,Banco,Tarjeta,Vencimiento,Monto\n';
+            
+            data.expenses.forEach(e => {
+                csv += `Gasto,${e.date},${e.description},${e.category},${e.bank || ''},${e.card || ''},${e.dueDate || ''},${e.amount}\n`;
+            });
+            
+            data.incomes.forEach(e => {
+                csv += `Ingreso,${e.date},${e.description},${e.category},,,,${e.amount}\n`;
+            });
+
+            const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'mis-finanzas.csv');
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function deleteAllData() {
+            data = {
+                version: 2,
+                expenses: [],
+                incomes: [],
+                cardConfigs: {
+                    'Galicia-Visa': { dueDate: null },
+                    'Galicia-Amex': { dueDate: null },
+                    'Macro-Visa': { dueDate: null },
+                    'Macro-Amex': { dueDate: null },
+                    'Santander-Visa': { dueDate: null },
+                    'Santander-Amex': { dueDate: null },
+                    'Naranja-Naranja': { dueDate: null },
+                    'MercadoPago-MercadoPago': { dueDate: null }
+                }
+            };
+            saveData();
+            updateDashboard();
+            alert('✓ Todos los datos eliminados');
+        }
+
+        window.addEventListener('load', init);
+
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
