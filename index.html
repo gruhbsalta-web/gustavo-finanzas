@@ -8,452 +8,86 @@
     <meta name="apple-mobile-web-app-title" content="Mis Finanzas">
     <meta name="theme-color" content="#667eea">
     <meta name="description" content="Gestión de finanzas personales">
-    
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>💰</text></svg>">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <title>Mis Finanzas</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            height: 100%;
-            width: 100%;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f8f9fa;
-            color: #333;
-            padding-bottom: 80px;
-            overflow-x: hidden;
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-touch-callout: none;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding-top: max(20px, env(safe-area-inset-top));
-        }
-        
-        .header h1 {
-            font-size: 1.5em;
-            margin-bottom: 15px;
-        }
-        
-        .balance {
-            background: rgba(255,255,255,0.15);
-            padding: 15px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-        
-        .balance-label {
-            font-size: 0.85em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-        
-        .balance-amount {
-            font-size: 2em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .balance-detail {
-            display: flex;
-            gap: 20px;
-            font-size: 0.9em;
-        }
-        
-        .content {
-            max-width: 100%;
-            padding: 0 20px;
-        }
-        
-        .screen {
-            display: none;
-            animation: slideIn 0.3s;
-            padding: 20px 0;
-        }
-        
-        .screen.active {
-            display: block;
-        }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .quick-actions {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        
-        .action-btn {
-            flex: 1;
-            padding: 20px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1em;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            transition: transform 0.2s;
-            color: white;
-            font-weight: 600;
-        }
-        
-        .action-btn:active {
-            transform: scale(0.95);
-        }
-        
-        .action-btn.expense {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        
-        .action-btn.income {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        
-        .action-icon {
-            font-size: 2.5em;
-        }
-        
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: space-around;
-            background: white;
-            border-top: 1px solid #eee;
-            z-index: 200;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        
-        .nav-item {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            background: none;
-            cursor: pointer;
-            text-align: center;
-            font-size: 0.75em;
-            color: #999;
-            transition: color 0.2s;
-        }
-        
-        .nav-item.active {
-            color: #667eea;
-        }
-        
-        .nav-icon {
-            font-size: 1.8em;
-            display: block;
-            margin-bottom: 2px;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 300;
-            justify-content: flex-end;
-        }
-        
-        .modal.active {
-            display: flex;
-            animation: fadeIn 0.3s;
-        }
-        
-        @keyframes fadeIn {
-            from { background: rgba(0,0,0,0); }
-            to { background: rgba(0,0,0,0.5); }
-        }
-        
-        .modal-content {
-            background: white;
-            width: 100%;
-            max-height: 90vh;
-            border-radius: 20px 20px 0 0;
-            overflow-y: auto;
-            animation: slideUp 0.3s;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid #eee;
-            position: sticky;
-            top: 0;
-            background: white;
-        }
-        
-        .modal-title {
-            font-size: 1.2em;
-            font-weight: 600;
-        }
-        
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5em;
-            cursor: pointer;
-            color: #999;
-            padding: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .modal-body {
-            padding: 20px;
-            padding-bottom: 40px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            font-size: 0.95em;
-        }
-        
-        .form-input, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.2s;
-            font-family: inherit;
-        }
-        
-        .form-input:focus, select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        
-        .btn:active {
-            opacity: 0.8;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .btn-income {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-        
-        .transaction-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .transaction-info {
-            flex: 1;
-        }
-        
-        .transaction-desc {
-            font-weight: 600;
-            margin-bottom: 3px;
-        }
-        
-        .transaction-meta {
-            font-size: 0.85em;
-            color: #999;
-        }
-        
-        .transaction-amount {
-            font-weight: 600;
-            margin-left: 10px;
-            min-width: 80px;
-            text-align: right;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #999;
-            font-size: 0.95em;
-        }
-        
-        .empty-icon {
-            font-size: 3em;
-            margin-bottom: 10px;
-        }
-        
-        .stat-card {
-            background: linear-gradient(135deg, var(--color-from) 0%, var(--color-to) 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-        }
-        
-        .stat-label {
-            font-size: 0.85em;
-            opacity: 0.9;
-            margin-bottom: 5px;
-        }
-        
-        .stat-amount {
-            font-size: 1.8em;
-            font-weight: bold;
-        }
-
-        .bank-selector {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .bank-option {
-            padding: 12px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9em;
-            font-weight: 600;
-        }
-
-        .bank-option:active {
-            transform: scale(0.95);
-        }
-
-        .bank-option.selected {
-            border-color: #667eea;
-            background: #f0f4ff;
-            color: #667eea;
-        }
-
-        .card-selector {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .card-option {
-            padding: 12px;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9em;
-            font-weight: 600;
-        }
-
-        .card-option:active {
-            transform: scale(0.95);
-        }
-
-        .card-option.selected {
-            border-color: #667eea;
-            background: #f0f4ff;
-            color: #667eea;
-        }
-
-        .section-title {
-            font-size: 1em;
-            font-weight: 600;
-            margin: 20px 0 10px 0;
-            color: #333;
-        }
-
-        .card-config {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .card-config-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .card-config-item:last-child {
-            border-bottom: none;
-        }
-
-        .card-config-label {
-            font-weight: 600;
-            font-size: 0.9em;
-        }
-
-        .card-config-value {
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        .card-config-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.8em;
-            cursor: pointer;
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{height:100%;width:100%}
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8f9fa;color:#333;padding-bottom:80px;overflow-x:hidden;-webkit-user-select:none;user-select:none}
+        .header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:20px;text-align:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.1);padding-top:max(20px,env(safe-area-inset-top))}
+        .header h1{font-size:1.5em;margin-bottom:15px}
+        .balance{background:rgba(255,255,255,.15);padding:15px;border-radius:12px;backdrop-filter:blur(10px)}
+        .balance-label{font-size:.85em;opacity:.9;margin-bottom:5px}
+        .balance-amount{font-size:2em;font-weight:700;margin-bottom:10px}
+        .balance-detail{display:flex;gap:20px;font-size:.9em}
+        .content{max-width:100%;padding:0 20px}
+        .screen{display:none;animation:slideIn .3s;padding:20px 0}
+        .screen.active{display:block}
+        @keyframes slideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .quick-actions{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+        .action-btn{flex:1;min-width:calc(33% - 10px);padding:15px 10px;border:none;border-radius:12px;font-size:.85em;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .2s;color:#fff;font-weight:600}
+        .action-btn:active{transform:scale(.95)}
+        .action-btn.expense{background:linear-gradient(135deg,#f093fb,#f5576c)}
+        .action-btn.income{background:linear-gradient(135deg,#4facfe,#00f2fe)}
+        .action-btn.import{background:linear-gradient(135deg,#f6d365,#fda085)}
+        .action-icon{font-size:2em}
+        .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;background:#fff;border-top:1px solid #eee;z-index:200;padding-bottom:env(safe-area-inset-bottom)}
+        .nav-item{flex:1;padding:10px 4px;border:none;background:none;cursor:pointer;text-align:center;font-size:.65em;color:#999;transition:color .2s}
+        .nav-item.active{color:#667eea}
+        .nav-icon{font-size:1.6em;display:block;margin-bottom:2px}
+        .modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:300;justify-content:flex-end}
+        .modal.active{display:flex;animation:fadeIn .3s}
+        @keyframes fadeIn{from{background:rgba(0,0,0,0)}to{background:rgba(0,0,0,.5)}}
+        .modal-content{background:#fff;width:100%;max-height:90vh;border-radius:20px 20px 0 0;overflow-y:auto;animation:slideUp .3s}
+        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        .modal-header{display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fff;z-index:1}
+        .modal-title{font-size:1.2em;font-weight:600}
+        .modal-close{background:none;border:none;font-size:1.5em;cursor:pointer;color:#999;padding:0;width:40px;height:40px;display:flex;align-items:center;justify-content:center}
+        .modal-body{padding:20px;padding-bottom:40px}
+        .form-group{margin-bottom:20px}
+        .form-label{display:block;margin-bottom:8px;font-weight:600;font-size:.95em}
+        .form-input,select{width:100%;padding:12px;border:2px solid #eee;border-radius:8px;font-size:1em;transition:border-color .2s;font-family:inherit}
+        .form-input:focus,select:focus{outline:none;border-color:#667eea}
+        .btn{width:100%;padding:14px;border:none;border-radius:8px;font-size:1em;font-weight:600;cursor:pointer;transition:opacity .2s}
+        .btn:active{opacity:.8}
+        .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+        .btn-income{background:linear-gradient(135deg,#4facfe,#00f2fe);color:#fff}
+        .btn-import{background:linear-gradient(135deg,#f6d365,#fda085);color:#fff}
+        .transaction-item{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-bottom:1px solid #eee}
+        .transaction-info{flex:1}
+        .transaction-desc{font-weight:600;margin-bottom:3px;font-size:.95em}
+        .transaction-meta{font-size:.8em;color:#999}
+        .transaction-amount{font-weight:600;margin-left:10px;min-width:80px;text-align:right;font-size:.95em}
+        .empty-state{text-align:center;padding:40px 20px;color:#999;font-size:.95em}
+        .empty-icon{font-size:3em;margin-bottom:10px}
+        .stat-card{background:linear-gradient(135deg,var(--color-from),var(--color-to));color:#fff;padding:20px;border-radius:12px;margin-bottom:15px}
+        .stat-label{font-size:.85em;opacity:.9;margin-bottom:5px}
+        .stat-amount{font-size:1.8em;font-weight:700}
+        .bank-selector{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:15px}
+        .bank-option{padding:10px 6px;border:2px solid #eee;border-radius:8px;text-align:center;cursor:pointer;transition:all .2s;font-size:.8em;font-weight:600}
+        .bank-option:active{transform:scale(.95)}
+        .bank-option.selected{border-color:#667eea;background:#f0f4ff;color:#667eea}
+        .card-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:15px}
+        .card-option{padding:10px;border:2px solid #eee;border-radius:8px;text-align:center;cursor:pointer;transition:all .2s;font-size:.85em;font-weight:600}
+        .card-option:active{transform:scale(.95)}
+        .card-option.selected{border-color:#667eea;background:#f0f4ff;color:#667eea}
+        .card-config{background:#f8f9fa;padding:12px;border-radius:8px;margin-bottom:10px}
+        .card-config-item{display:flex;justify-content:space-between;align-items:center}
+        .card-config-label{font-weight:600;font-size:.9em}
+        .card-config-value{color:#667eea;font-weight:600;font-size:.85em}
+        .card-config-btn{background:#667eea;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:.8em;cursor:pointer}
+        .import-preview{background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:10px;border-left:4px solid #667eea}
+        .import-preview-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:.85em}
+        .import-preview-item:last-child{border-bottom:none}
+        .import-header{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:12px;border-radius:8px;margin-bottom:15px;text-align:center}
+        .cuota-badge{background:#667eea;color:#fff;padding:2px 8px;border-radius:12px;font-size:.75em;font-weight:600}
+        .projection-card{background:#fff;border-radius:12px;padding:15px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-left:4px solid #667eea}
+        .projection-month{font-weight:700;font-size:1.1em;margin-bottom:10px;color:#667eea}
+        .loading{text-align:center;padding:20px;color:#667eea}
+        .loading::after{content:'';display:inline-block;width:20px;height:20px;border:3px solid #667eea;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-left:10px}
+        @keyframes spin{to{transform:rotate(360deg)}}
     </style>
 </head>
 <body>
@@ -468,89 +102,60 @@
             </div>
         </div>
     </div>
-
     <div class="content">
-        <!-- HOME -->
         <div id="homeScreen" class="screen active">
             <div class="quick-actions">
-                <button class="action-btn expense" onclick="showModal('expenseModal')">
-                    <div class="action-icon">➖</div>
-                    <div>Gasto</div>
-                </button>
-                <button class="action-btn income" onclick="showModal('incomeModal')">
-                    <div class="action-icon">➕</div>
-                    <div>Ingreso</div>
-                </button>
+                <button class="action-btn expense" onclick="showModal('expenseModal')"><div class="action-icon">➖</div><div>Gasto</div></button>
+                <button class="action-btn income" onclick="showModal('incomeModal')"><div class="action-icon">➕</div><div>Ingreso</div></button>
+                <button class="action-btn import" onclick="showModal('importModal')"><div class="action-icon">📄</div><div>Importar</div></button>
             </div>
             <div id="recentTransactions"></div>
         </div>
-
-        <!-- MOVIMIENTOS -->
         <div id="transactionsScreen" class="screen">
-            <h2 style="margin-bottom: 20px; margin-top: 20px;">📋 Movimientos</h2>
+            <h2 style="margin-bottom:20px;margin-top:20px">📋 Movimientos</h2>
             <div id="transactionsList"></div>
         </div>
-
-        <!-- PROYECCIÓN -->
         <div id="projectionScreen" class="screen">
-            <h2 style="margin-bottom: 20px; margin-top: 20px;">📅 Proyección de Cuotas</h2>
+            <h2 style="margin-bottom:20px;margin-top:20px">📅 Proyección de Cuotas</h2>
             <div id="projectionSummary"></div>
         </div>
-
-        <!-- STATS -->
         <div id="statsScreen" class="screen">
-            <h2 style="margin-bottom: 20px; margin-top: 20px;">📊 Estadísticas</h2>
+            <h2 style="margin-bottom:20px;margin-top:20px">📊 Estadísticas</h2>
             <div id="statsSummary"></div>
         </div>
-
-        <!-- AJUSTES -->
         <div id="settingsScreen" class="screen">
-            <h2 style="margin-bottom: 20px; margin-top: 20px;">⚙️ Ajustes</h2>
+            <h2 style="margin-bottom:20px;margin-top:20px">⚙️ Ajustes</h2>
             <div id="cardSettings"></div>
-            <div style="margin-top: 30px;">
-                <button class="btn btn-primary" onclick="exportData()" style="margin-bottom: 15px;">📤 Exportar CSV</button>
-                <button class="btn" style="background: #f5576c; color: white;" onclick="if(confirm('¿Estás seguro?')) deleteAllData()">🗑️ Borrar todo</button>
+            <div style="margin-top:30px">
+                <button class="btn btn-primary" onclick="exportData()" style="margin-bottom:15px">📤 Exportar CSV</button>
+                <button class="btn" style="background:#f5576c;color:#fff" onclick="if(confirm('¿Borrar TODOS los datos?'))deleteAllData()">🗑️ Borrar todo</button>
             </div>
         </div>
     </div>
-
-    <!-- BOTTOM NAV -->
     <div class="bottom-nav">
-        <button class="nav-item active" onclick="showScreen('home', event)">
-            <span class="nav-icon">🏠</span>
-            <span>Inicio</span>
-        </button>
-        <button class="nav-item" onclick="showScreen('transactions', event)">
-            <span class="nav-icon">📋</span>
-            <span>Movimientos</span>
-        </button>
-        <button class="nav-item" onclick="showScreen('projection', event)">
-            <span class="nav-icon">📅</span>
-            <span>Proyección</span>
-        </button>
-        <button class="nav-item" onclick="showScreen('stats', event)">
-            <span class="nav-icon">📊</span>
-            <span>Stats</span>
-        </button>
-        <button class="nav-item" onclick="showScreen('settings', event)">
-            <span class="nav-icon">⚙️</span>
-            <span>Ajustes</span>
-        </button>
+        <button class="nav-item active" onclick="showScreen('home',event)"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+        <button class="nav-item" onclick="showScreen('transactions',event)"><span class="nav-icon">📋</span><span>Movim.</span></button>
+        <button class="nav-item" onclick="showScreen('projection',event)"><span class="nav-icon">📅</span><span>Proyección</span></button>
+        <button class="nav-item" onclick="showScreen('stats',event)"><span class="nav-icon">📊</span><span>Stats</span></button>
+        <button class="nav-item" onclick="showScreen('settings',event)"><span class="nav-icon">⚙️</span><span>Ajustes</span></button>
     </div>
 
-    <!-- MODAL AJUSTES TARJETAS -->
-    <div id="cardSettingsModal" class="modal">
+    <!-- MODAL IMPORTAR -->
+    <div id="importModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <div class="modal-title" id="cardSettingsTitle">Configurar Tarjeta</div>
-                <button class="modal-close" onclick="closeModal('cardSettingsModal')">✕</button>
+                <div class="modal-title">📄 Importar Resumen</div>
+                <button class="modal-close" onclick="closeModal('importModal')">✕</button>
             </div>
             <div class="modal-body">
+                <p style="margin-bottom:15px;color:#666;font-size:.9em">Selecciona el PDF del resumen de tu tarjeta (Galicia o Macro Visa)</p>
                 <div class="form-group">
-                    <label class="form-label">Fecha de Vencimiento</label>
-                    <input type="date" class="form-input" id="cardDueDateInput" placeholder="Día de pago">
+                    <label class="form-label">Archivo PDF</label>
+                    <input type="file" accept=".pdf" class="form-input" id="pdfFile" onchange="processPDF(this)">
                 </div>
-                <button class="btn btn-primary" onclick="saveCardDueDate()">Guardar Fecha</button>
+                <div id="importLoading" style="display:none" class="loading">Procesando PDF...</div>
+                <div id="importPreview" style="display:none"></div>
+                <button id="importConfirmBtn" class="btn btn-import" onclick="confirmImport()" style="display:none">✅ Importar Gastos</button>
             </div>
         </div>
     </div>
@@ -563,44 +168,24 @@
                 <button class="modal-close" onclick="closeModal('expenseModal')">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Monto</label>
-                    <input type="number" class="form-input" id="expenseAmount" placeholder="0.00" step="0.01">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Descripción</label>
-                    <input type="text" class="form-input" id="expenseDesc" placeholder="¿En qué gastaste?">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Categoría</label>
+                <div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-input" id="expenseAmount" placeholder="0.00" step="0.01"></div>
+                <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" id="expenseDesc" placeholder="¿En qué gastaste?"></div>
+                <div class="form-group"><label class="form-label">Categoría</label>
                     <select class="form-input" id="expenseCategory">
-                        <option value="Alimentación">🍔 Alimentación</option>
-                        <option value="Transporte">🚗 Transporte</option>
-                        <option value="Servicios">💡 Servicios</option>
-                        <option value="Entretenimiento">🎬 Entretenimiento</option>
-                        <option value="Salud">💊 Salud</option>
-                        <option value="Otros">📦 Otros</option>
+                        <option value="Alimentación">🍔 Alimentación</option><option value="Transporte">🚗 Transporte</option>
+                        <option value="Servicios">💡 Servicios</option><option value="Entretenimiento">🎬 Entretenimiento</option>
+                        <option value="Salud">💊 Salud</option><option value="Otros">📦 Otros</option>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Banco/Tarjeta</label>
-                    <div class="bank-selector" id="bankSelector"></div>
-                    <div class="card-selector" id="cardSelector" style="display: none;"></div>
+                <div class="form-group"><label class="form-label">Banco/Tarjeta</label><div class="bank-selector" id="bankSelector"></div><div class="card-selector" id="cardSelector" style="display:none"></div></div>
+                <div class="form-group"><label class="form-label">Cuotas</label>
+                    <select class="form-input" id="expenseInstallments">
+                        <option value="1">1 cuota (contado)</option><option value="2">2 cuotas</option><option value="3">3 cuotas</option>
+                        <option value="6">6 cuotas</option><option value="9">9 cuotas</option><option value="12">12 cuotas</option>
+                        <option value="18">18 cuotas</option><option value="24">24 cuotas</option>
+                    </select>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Fecha</label>
-                    <input type="date" class="form-input" id="expenseDate">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Fecha de Vencimiento</label>
-                    <input type="date" class="form-input" id="expenseDueDate" placeholder="Fecha de pago">
-                </div>
-                
+                <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="expenseDate"></div>
                 <button class="btn btn-primary" onclick="saveExpense()">Guardar Gasto</button>
             </div>
         </div>
@@ -614,496 +199,440 @@
                 <button class="modal-close" onclick="closeModal('incomeModal')">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Monto</label>
-                    <input type="number" class="form-input" id="incomeAmount" placeholder="0.00" step="0.01">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Descripción</label>
-                    <input type="text" class="form-input" id="incomeDesc" placeholder="¿De dónde viene?">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Categoría</label>
+                <div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-input" id="incomeAmount" placeholder="0.00" step="0.01"></div>
+                <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" id="incomeDesc" placeholder="¿De dónde viene?"></div>
+                <div class="form-group"><label class="form-label">Categoría</label>
                     <select class="form-input" id="incomeCategory">
-                        <option value="Sueldo">💼 Sueldo</option>
-                        <option value="Freelance">💻 Freelance</option>
-                        <option value="Inversiones">📈 Inversiones</option>
-                        <option value="Otros">💰 Otros</option>
+                        <option value="Sueldo">💼 Sueldo</option><option value="Freelance">💻 Freelance</option>
+                        <option value="Inversiones">📈 Inversiones</option><option value="Otros">💰 Otros</option>
                     </select>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Fecha</label>
-                    <input type="date" class="form-input" id="incomeDate">
-                </div>
-                
+                <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="incomeDate"></div>
                 <button class="btn btn-income" onclick="saveIncome()">Guardar Ingreso</button>
             </div>
         </div>
     </div>
 
-    <script>
-        const BANKS = {
-            'Galicia': {
-                name: '🏦 Galicia',
-                cards: ['Visa', 'Amex']
-            },
-            'Macro': {
-                name: '🏦 Macro',
-                cards: ['Visa', 'Amex']
-            },
-            'Santander': {
-                name: '🏦 Santander',
-                cards: ['Visa', 'Amex']
-            },
-            'Naranja': {
-                name: '🧡 Naranja',
-                cards: ['Naranja']
-            },
-            'MercadoPago': {
-                name: '💳 Mercado Pago',
-                cards: ['Mercado Pago']
-            },
-            'Efectivo': {
-                name: '💵 Efectivo',
-                cards: ['Efectivo']
-            }
-        };
+    <!-- MODAL AJUSTES TARJETA -->
+    <div id="cardSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="cardSettingsTitle">Configurar Tarjeta</div>
+                <button class="modal-close" onclick="closeModal('cardSettingsModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Día de Vencimiento (del 1 al 28)</label><input type="number" class="form-input" id="cardDueDayInput" min="1" max="28" placeholder="Ej: 10"></div>
+                <button class="btn btn-primary" onclick="saveCardDueDate()">Guardar</button>
+            </div>
+        </div>
+    </div>
 
-        let data = {
-            version: 2,
-            expenses: [],
-            incomes: [],
-            cardConfigs: {
-                'Galicia-Visa': { dueDate: null },
-                'Galicia-Amex': { dueDate: null },
-                'Macro-Visa': { dueDate: null },
-                'Macro-Amex': { dueDate: null },
-                'Santander-Visa': { dueDate: null },
-                'Santander-Amex': { dueDate: null },
-                'Naranja-Naranja': { dueDate: null },
-                'MercadoPago-MercadoPago': { dueDate: null }
-            }
-        };
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let selectedBank = null;
-        let selectedCard = null;
+const BANKS={
+    Galicia:{name:'🏦 Galicia',cards:['Visa','Amex']},
+    Macro:{name:'🏦 Macro',cards:['Visa','Amex']},
+    Santander:{name:'🏦 Santander',cards:['Visa','Amex']},
+    Naranja:{name:'🧡 Naranja',cards:['Naranja']},
+    MercadoPago:{name:'💳 MP',cards:['MP']},
+    Efectivo:{name:'💵 Efectivo',cards:['Efectivo']}
+};
 
-        function init() {
-            loadData();
-            setDefaultDates();
-            renderBankSelector();
-            updateDashboard();
-        }
+let data={version:3,expenses:[],incomes:[],cardConfigs:{
+    'Galicia-Visa':{dueDay:null},'Galicia-Amex':{dueDay:null},
+    'Macro-Visa':{dueDay:null},'Macro-Amex':{dueDay:null},
+    'Santander-Visa':{dueDay:null},'Santander-Amex':{dueDay:null},
+    'Naranja-Naranja':{dueDay:null},'MercadoPago-MP':{dueDay:null}
+}};
 
-        function loadData() {
-            const saved = localStorage.getItem('misFinanzasData');
-            if (saved) {
-                try {
-                    const loaded = JSON.parse(saved);
-                    data = {...data, ...loaded};
-                } catch(e) {
-                    console.error('Error loading data:', e);
-                }
-            }
-        }
+let selectedBank=null,selectedCard=null,currentEditingCard=null,pendingImport=[];
 
-        function saveData() {
-            localStorage.setItem('misFinanzasData', JSON.stringify(data));
-        }
+function init(){
+    loadData();setDefaultDates();renderBankSelector();updateDashboard();
+}
 
-        function setDefaultDates() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('expenseDate').value = today;
-            document.getElementById('incomeDate').value = today;
-        }
+function loadData(){
+    const saved=localStorage.getItem('misFinanzasData');
+    if(saved){try{const loaded=JSON.parse(saved);data={...data,...loaded}}catch(e){}}
+}
 
-        function renderBankSelector() {
-            const selector = document.getElementById('bankSelector');
-            selector.innerHTML = Object.entries(BANKS).map(([key, bank]) => `
-                <div class="bank-option" onclick="selectBank('${key}')" data-bank="${key}">
-                    ${bank.name}
-                </div>
-            `).join('');
-        }
+function saveData(){localStorage.setItem('misFinanzasData',JSON.stringify(data))}
 
-        function selectBank(bankKey) {
-            selectedBank = bankKey;
-            selectedCard = null;
+function setDefaultDates(){
+    const today=new Date().toISOString().split('T')[0];
+    document.getElementById('expenseDate').value=today;
+    document.getElementById('incomeDate').value=today;
+}
 
-            document.querySelectorAll('.bank-option').forEach(el => el.classList.remove('selected'));
-            document.querySelector(`[data-bank="${bankKey}"]`).classList.add('selected');
+function fmt(n){return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:2})}
 
-            const cards = BANKS[bankKey].cards;
-            const cardSelector = document.getElementById('cardSelector');
-            cardSelector.style.display = 'grid';
-            cardSelector.innerHTML = cards.map(card => `
-                <div class="card-option" onclick="selectCard('${card}')" data-card="${card}">
-                    ${card === 'Visa' ? '💳 Visa' : card === 'Amex' ? '💳 Amex' : card === 'Naranja' ? '🧡 Naranja' : '💳 ' + card}
-                </div>
-            `).join('');
-        }
+function renderBankSelector(){
+    document.getElementById('bankSelector').innerHTML=Object.entries(BANKS).map(([k,b])=>
+        `<div class="bank-option" onclick="selectBank('${k}')" data-bank="${k}">${b.name}</div>`
+    ).join('');
+}
 
-        function selectCard(card) {
-            selectedCard = card;
-            document.querySelectorAll('.card-option').forEach(el => el.classList.remove('selected'));
-            document.querySelector(`[data-card="${card}"]`).classList.add('selected');
-        }
+function selectBank(k){
+    selectedBank=k;selectedCard=null;
+    document.querySelectorAll('.bank-option').forEach(el=>el.classList.remove('selected'));
+    document.querySelector(`[data-bank="${k}"]`).classList.add('selected');
+    const cs=document.getElementById('cardSelector');
+    cs.style.display='grid';
+    cs.innerHTML=BANKS[k].cards.map(c=>`<div class="card-option" onclick="selectCard('${c}')" data-card="${c}">💳 ${c}</div>`).join('');
+}
 
-        function showModal(modalId) {
-            selectedBank = null;
-            selectedCard = null;
-            document.getElementById(modalId).classList.add('active');
-        }
+function selectCard(c){
+    selectedCard=c;
+    document.querySelectorAll('.card-option').forEach(el=>el.classList.remove('selected'));
+    document.querySelector(`[data-card="${c}"]`).classList.add('selected');
+}
 
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
+function showModal(id){
+    if(id==='expenseModal'){selectedBank=null;selectedCard=null;renderBankSelector();document.getElementById('cardSelector').style.display='none'}
+    document.getElementById(id).classList.add('active');
+}
+function closeModal(id){document.getElementById(id).classList.remove('active')}
 
-        function showScreen(screenName, event) {
-            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
-            const screenMap = {
-                'home': 'homeScreen',
-                'transactions': 'transactionsScreen',
-                'projection': 'projectionScreen',
-                'stats': 'statsScreen',
-                'settings': 'settingsScreen'
-            };
-            
-            document.getElementById(screenMap[screenName]).classList.add('active');
-            if (event) event.target.closest('.nav-item').classList.add('active');
-            
-            if (screenName === 'transactions') renderTransactions();
-            if (screenName === 'projection') renderProjection();
-            if (screenName === 'stats') renderStats();
-            if (screenName === 'settings') renderCardSettings();
-        }
+function showScreen(name,event){
+    document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+    const map={home:'homeScreen',transactions:'transactionsScreen',projection:'projectionScreen',stats:'statsScreen',settings:'settingsScreen'};
+    document.getElementById(map[name]).classList.add('active');
+    if(event)event.target.closest('.nav-item').classList.add('active');
+    if(name==='transactions')renderTransactions();
+    if(name==='projection')renderProjection();
+    if(name==='stats')renderStats();
+    if(name==='settings')renderCardSettings();
+}
 
-        let currentEditingCard = null;
+function categorize(desc){
+    const d=desc.toLowerCase();
+    if(/coto|carrefour|vea|disco|jumbo|walmart|dia|changomas|super|almacen|verduleria/.test(d))return'Alimentación';
+    if(/ypf|shell|axion|combust|nafta|uber|cabify|peaje/.test(d))return'Transporte';
+    if(/claro|movistar|personal|edenor|edesur|metrogas|aysa|telecom|internet|netflix|spotify|claude|disney|hbo|flow/.test(d))return'Servicios';
+    if(/cine|teatro|show|restaurant|bar|cafe|gimnasi|gym|club|sport/.test(d))return'Entretenimiento';
+    if(/farmacia|medic|hospital|clinica|osde|swiss|galeno|prepaga/.test(d))return'Salud';
+    return'Otros';
+}
 
-        function saveExpense() {
-            const amount = parseFloat(document.getElementById('expenseAmount').value);
-            const desc = document.getElementById('expenseDesc').value;
-            const category = document.getElementById('expenseCategory').value;
-            const date = document.getElementById('expenseDate').value;
-            const dueDate = document.getElementById('expenseDueDate').value;
-
-            if (!amount || !desc || !selectedBank || !selectedCard) {
-                alert('Completa todos los campos incluyendo banco y tarjeta');
-                return;
-            }
-
-            data.expenses.push({
-                id: Date.now(),
-                type: 'expense',
-                amount: amount,
-                description: desc,
-                category: category,
-                date: date,
-                bank: selectedBank,
-                card: selectedCard,
-                dueDate: dueDate || date
-            });
-
-            saveData();
-            updateDashboard();
-            closeModal('expenseModal');
-            
-            document.getElementById('expenseAmount').value = '';
-            document.getElementById('expenseDesc').value = '';
-            document.getElementById('expenseDueDate').value = '';
-            setDefaultDates();
-            renderBankSelector();
-            selectedBank = null;
-            selectedCard = null;
-        }
-
-        function saveIncome() {
-            const amount = parseFloat(document.getElementById('incomeAmount').value);
-            const desc = document.getElementById('incomeDesc').value;
-            const category = document.getElementById('incomeCategory').value;
-            const date = document.getElementById('incomeDate').value;
-
-            if (!amount || !desc) {
-                alert('Completa todos los campos');
-                return;
-            }
-
-            data.incomes.push({
-                id: Date.now(),
-                type: 'income',
-                amount: amount,
-                description: desc,
-                category: category,
-                date: date
-            });
-
-            saveData();
-            updateDashboard();
-            closeModal('incomeModal');
-            
-            document.getElementById('incomeAmount').value = '';
-            document.getElementById('incomeDesc').value = '';
-            setDefaultDates();
-        }
-
-        function updateDashboard() {
-            const currentMonth = new Date().toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
-            
-            const expenses = data.expenses.filter(e => {
-                const eMonth = new Date(e.date).toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
-                return eMonth === currentMonth;
-            }).reduce((sum, e) => sum + e.amount, 0);
-
-            const incomes = data.incomes.filter(e => {
-                const eMonth = new Date(e.date).toLocaleString('es-AR', {month: 'numeric', year: 'numeric'});
-                return eMonth === currentMonth;
-            }).reduce((sum, e) => sum + e.amount, 0);
-
-            const balance = incomes - expenses;
-
-            document.getElementById('monthBalance').textContent = '$' + balance.toLocaleString('es-AR', {minimumFractionDigits: 2});
-            document.getElementById('headerIncome').textContent = '$' + incomes.toLocaleString('es-AR', {minimumFractionDigits: 2});
-            document.getElementById('headerExpense').textContent = '$' + expenses.toLocaleString('es-AR', {minimumFractionDigits: 2});
-
-            renderRecent();
-        }
-
-        function renderRecent() {
-            const allTransactions = [
-                ...data.expenses.map(e => ({...e, type: 'expense'})),
-                ...data.incomes.map(e => ({...e, type: 'income'}))
-            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
-
-            const html = allTransactions.length === 0 
-                ? '<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
-                : '<div><h3 style="margin-bottom: 15px;">Movimientos recientes</h3>' + 
-                  allTransactions.map(t => `
-                    <div class="transaction-item">
-                        <div class="transaction-info">
-                            <div class="transaction-desc">${t.description}</div>
-                            <div class="transaction-meta">
-                                ${t.bank ? BANKS[t.bank].name : ''}${t.card ? ' • ' + t.card : ''}<br>
-                                ${new Date(t.date).toLocaleDateString('es-AR')}
-                            </div>
-                        </div>
-                        <div class="transaction-amount" style="color: ${t.type === 'expense' ? '#f5576c' : '#00f2fe'};">
-                            ${t.type === 'expense' ? '-' : '+'}$${t.amount.toLocaleString('es-AR', {minimumFractionDigits: 2})}
-                        </div>
-                    </div>
-                  `).join('') + '</div>';
-
-            document.getElementById('recentTransactions').innerHTML = html;
-        }
-
-        function renderTransactions() {
-            const allTransactions = [
-                ...data.expenses.map(e => ({...e, type: 'expense'})),
-                ...data.incomes.map(e => ({...e, type: 'income'}))
-            ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            const html = allTransactions.length === 0 
-                ? '<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
-                : allTransactions.map(t => `
-                    <div class="transaction-item">
-                        <div class="transaction-info">
-                            <div class="transaction-desc">${t.description}</div>
-                            <div class="transaction-meta">
-                                ${t.category}${t.bank ? ' • ' + BANKS[t.bank].name : ''}${t.card ? ' ' + t.card : ''}<br>
-                                ${new Date(t.date).toLocaleDateString('es-AR')}
-                                ${t.dueDate ? ' → Vence: ' + new Date(t.dueDate).toLocaleDateString('es-AR') : ''}
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class="transaction-amount" style="color: ${t.type === 'expense' ? '#f5576c' : '#00f2fe'};">
-                                ${t.type === 'expense' ? '-' : '+'}$${t.amount.toLocaleString('es-AR', {minimumFractionDigits: 2})}
-                            </div>
-                            <button onclick="deleteTransaction('${t.id}', '${t.type}')" style="background: none; border: none; color: #ccc; cursor: pointer; font-size: 1.2em; padding: 5px;">🗑️</button>
-                        </div>
-                    </div>
-                  `).join('');
-
-            document.getElementById('transactionsList').innerHTML = html;
-        }
-
-        function renderStats() {
-            const totalExpenses = data.expenses.reduce((sum, e) => sum + e.amount, 0);
-            const totalIncomes = data.incomes.reduce((sum, e) => sum + e.amount, 0);
-            const balance = totalIncomes - totalExpenses;
-
-            const html = `
-                <div class="stat-card" style="--color-from: #4facfe; --color-to: #00f2fe;">
-                    <div class="stat-label">💰 Ingresos Total</div>
-                    <div class="stat-amount">$${totalIncomes.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
-                </div>
-                <div class="stat-card" style="--color-from: #f093fb; --color-to: #f5576c;">
-                    <div class="stat-label">➖ Gastos Total</div>
-                    <div class="stat-amount">$${totalExpenses.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
-                </div>
-                <div class="stat-card" style="--color-from: #667eea; --color-to: #764ba2;">
-                    <div class="stat-label">⚖️ Balance</div>
-                    <div class="stat-amount">$${balance.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
-                </div>
-            `;
-
-            document.getElementById('statsSummary').innerHTML = html;
-        }
-
-        function renderCardSettings() {
-            const html = `
-                <h3 style="margin-bottom: 15px;">Fechas de Vencimiento por Tarjeta</h3>
-                ${Object.entries(data.cardConfigs).map(([key, config]) => {
-                    const [bank, card] = key.split('-');
-                    return `
-                        <div class="card-config">
-                            <div class="card-config-item">
-                                <div>
-                                    <div class="card-config-label">${BANKS[bank].name} - ${card}</div>
-                                    <div class="card-config-value">${config.dueDate ? new Date(config.dueDate).toLocaleDateString('es-AR') : 'No configurado'}</div>
-                                </div>
-                                <button class="card-config-btn" onclick="editCardDueDate('${key}')">Editar</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            `;
-            
-            document.getElementById('cardSettings').innerHTML = html;
-        }
-
-        function editCardDueDate(cardKey) {
-            currentEditingCard = cardKey;
-            const [bank, card] = cardKey.split('-');
-            const config = data.cardConfigs[cardKey];
-            
-            document.getElementById('cardSettingsTitle').textContent = `${BANKS[bank].name} - ${card}`;
-            document.getElementById('cardDueDateInput').value = config.dueDate || '';
-            showModal('cardSettingsModal');
-        }
-
-        function saveCardDueDate() {
-            const dueDate = document.getElementById('cardDueDateInput').value;
-            
-            if (currentEditingCard && dueDate) {
-                data.cardConfigs[currentEditingCard].dueDate = dueDate;
-                saveData();
-                renderCardSettings();
-                closeModal('cardSettingsModal');
-            } else {
-                alert('Selecciona una fecha');
-            }
-        }
-
-        function renderProjection() {
-            // Agrupar gastos por banco/tarjeta y calcular cuotas
-            const projections = {};
-            
-            data.expenses.forEach(expense => {
-                const key = `${expense.bank}-${expense.card}`;
-                if (!projections[key]) {
-                    projections[key] = {
-                        bank: expense.bank,
-                        card: expense.card,
-                        expenses: [],
-                        nextDueDate: data.cardConfigs[key]?.dueDate
-                    };
-                }
-                projections[key].expenses.push(expense);
-            });
-
-            let html = '<div style="margin-bottom: 20px;">';
-            
-            if (Object.keys(projections).length === 0) {
-                html = '<div class="empty-state"><div class="empty-icon">📅</div>Sin cuotas pendientes</div>';
-            } else {
-                Object.entries(projections).forEach(([key, proj]) => {
-                    const monthlyAmount = proj.expenses.reduce((sum, e) => sum + e.amount, 0);
-                    const nextDue = proj.nextDueDate ? new Date(proj.nextDueDate).toLocaleDateString('es-AR') : 'No configurado';
-                    
-                    html += `
-                        <div class="stat-card" style="--color-from: #667eea; --color-to: #764ba2; margin-bottom: 15px;">
-                            <div class="stat-label">${BANKS[proj.bank].name} ${proj.card}</div>
-                            <div class="stat-amount" style="font-size: 1.8em; margin-bottom: 10px;">$${monthlyAmount.toLocaleString('es-AR', {minimumFractionDigits: 2})}</div>
-                            <div style="font-size: 0.9em; opacity: 0.9;">
-                                📅 Vence: ${nextDue}<br>
-                                📊 ${proj.expenses.length} gasto(s)
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-            
-            html += '</div>';
-            document.getElementById('projectionSummary').innerHTML = html;
-        }
-
-        function deleteTransaction(id, type) {
-            if (confirm('¿Eliminar este movimiento?')) {
-                if (type === 'expense') {
-                    data.expenses = data.expenses.filter(e => e.id != id);
-                } else {
-                    data.incomes = data.incomes.filter(e => e.id != id);
-                }
-                saveData();
-                updateDashboard();
-                renderTransactions();
-            }
-        }
-
-        function exportData() {
-            let csv = 'Tipo,Fecha,Descripción,Categoría,Banco,Tarjeta,Vencimiento,Monto\n';
-            
-            data.expenses.forEach(e => {
-                csv += `Gasto,${e.date},${e.description},${e.category},${e.bank || ''},${e.card || ''},${e.dueDate || ''},${e.amount}\n`;
-            });
-            
-            data.incomes.forEach(e => {
-                csv += `Ingreso,${e.date},${e.description},${e.category},,,,${e.amount}\n`;
-            });
-
-            const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', 'mis-finanzas.csv');
-            link.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function deleteAllData() {
-            data = {
-                version: 2,
-                expenses: [],
-                incomes: [],
-                cardConfigs: {
-                    'Galicia-Visa': { dueDate: null },
-                    'Galicia-Amex': { dueDate: null },
-                    'Macro-Visa': { dueDate: null },
-                    'Macro-Amex': { dueDate: null },
-                    'Santander-Visa': { dueDate: null },
-                    'Santander-Amex': { dueDate: null },
-                    'Naranja-Naranja': { dueDate: null },
-                    'MercadoPago-MercadoPago': { dueDate: null }
-                }
-            };
-            saveData();
-            updateDashboard();
-            alert('✓ Todos los datos eliminados');
-        }
-
-        window.addEventListener('load', init);
-
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
+function saveExpense(){
+    const amount=parseFloat(document.getElementById('expenseAmount').value);
+    const desc=document.getElementById('expenseDesc').value;
+    const category=document.getElementById('expenseCategory').value;
+    const date=document.getElementById('expenseDate').value;
+    const installments=parseInt(document.getElementById('expenseInstallments').value)||1;
+    if(!amount||!desc||!selectedBank||!selectedCard){alert('Completa todos los campos');return}
+    const cuotaAmount=Math.round(amount/installments*100)/100;
+    for(let i=0;i<installments;i++){
+        const dueDate=new Date(date);
+        dueDate.setMonth(dueDate.getMonth()+i);
+        data.expenses.push({
+            id:Date.now()+i,type:'expense',amount:cuotaAmount,totalAmount:amount,
+            description:desc+(installments>1?` (${i+1}/${installments})`:''),
+            category,date,bank:selectedBank,card:selectedCard,
+            installment:i+1,totalInstallments:installments,
+            dueMonth:dueDate.toISOString().substring(0,7)
         });
-    </script>
+    }
+    saveData();updateDashboard();closeModal('expenseModal');
+    document.getElementById('expenseAmount').value='';document.getElementById('expenseDesc').value='';
+    document.getElementById('expenseInstallments').value='1';
+    setDefaultDates();renderBankSelector();document.getElementById('cardSelector').style.display='none';
+    selectedBank=null;selectedCard=null;
+}
+
+function saveIncome(){
+    const amount=parseFloat(document.getElementById('incomeAmount').value);
+    const desc=document.getElementById('incomeDesc').value;
+    const category=document.getElementById('incomeCategory').value;
+    const date=document.getElementById('incomeDate').value;
+    if(!amount||!desc){alert('Completa todos los campos');return}
+    data.incomes.push({id:Date.now(),type:'income',amount,description:desc,category,date});
+    saveData();updateDashboard();closeModal('incomeModal');
+    document.getElementById('incomeAmount').value='';document.getElementById('incomeDesc').value='';setDefaultDates();
+}
+
+function updateDashboard(){
+    const now=new Date();const cm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const expenses=data.expenses.filter(e=>e.dueMonth===cm||(!e.dueMonth&&e.date&&e.date.substring(0,7)===cm)).reduce((s,e)=>s+e.amount,0);
+    const incomes=data.incomes.filter(e=>e.date&&e.date.substring(0,7)===cm).reduce((s,e)=>s+e.amount,0);
+    document.getElementById('monthBalance').textContent=fmt(incomes-expenses);
+    document.getElementById('headerIncome').textContent=fmt(incomes);
+    document.getElementById('headerExpense').textContent=fmt(expenses);
+    renderRecent();
+}
+
+function renderRecent(){
+    const all=[...data.expenses.map(e=>({...e,type:'expense'})),...data.incomes.map(e=>({...e,type:'income'}))]
+        .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+    document.getElementById('recentTransactions').innerHTML=all.length===0
+        ?'<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
+        :'<h3 style="margin-bottom:15px">Últimos movimientos</h3>'+all.map(t=>`
+            <div class="transaction-item">
+                <div class="transaction-info">
+                    <div class="transaction-desc">${t.description}</div>
+                    <div class="transaction-meta">${t.bank?BANKS[t.bank]?.name||t.bank:''} ${t.card||''} · ${new Date(t.date).toLocaleDateString('es-AR')}</div>
+                </div>
+                <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
+            </div>`).join('');
+}
+
+function renderTransactions(){
+    const all=[...data.expenses.map(e=>({...e,type:'expense'})),...data.incomes.map(e=>({...e,type:'income'}))]
+        .sort((a,b)=>new Date(b.date)-new Date(a.date));
+    document.getElementById('transactionsList').innerHTML=all.length===0
+        ?'<div class="empty-state"><div class="empty-icon">📭</div>No hay movimientos</div>'
+        :all.map(t=>`
+            <div class="transaction-item">
+                <div class="transaction-info">
+                    <div class="transaction-desc">${t.description} ${t.totalInstallments>1?`<span class="cuota-badge">${t.installment}/${t.totalInstallments}</span>`:''}</div>
+                    <div class="transaction-meta">${t.category||''} · ${t.bank?BANKS[t.bank]?.name||t.bank:''} ${t.card||''}<br>${new Date(t.date).toLocaleDateString('es-AR')}${t.dueMonth?' · Vence: '+t.dueMonth:''}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                    <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
+                    <button onclick="deleteTx('${t.id}','${t.type}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:1.1em">🗑️</button>
+                </div>
+            </div>`).join('');
+}
+
+function renderProjection(){
+    const months={};
+    data.expenses.filter(e=>e.totalInstallments>1).forEach(e=>{
+        const m=e.dueMonth||e.date.substring(0,7);
+        if(!months[m])months[m]=[];
+        months[m].push(e);
+    });
+    const sorted=Object.keys(months).sort();
+    if(sorted.length===0){
+        document.getElementById('projectionSummary').innerHTML='<div class="empty-state"><div class="empty-icon">📅</div>No hay cuotas pendientes<br><small>Agrega un gasto en cuotas o importa un resumen</small></div>';
+        return;
+    }
+    const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    document.getElementById('projectionSummary').innerHTML=sorted.map(m=>{
+        const items=months[m];
+        const total=items.reduce((s,e)=>s+e.amount,0);
+        const [y,mo]=m.split('-');
+        const label=monthNames[parseInt(mo)-1]+' '+y;
+        const byCard={};
+        items.forEach(e=>{const k=`${e.bank}-${e.card}`;if(!byCard[k])byCard[k]={items:[],total:0};byCard[k].items.push(e);byCard[k].total+=e.amount});
+        return`<div class="projection-card">
+            <div class="projection-month">📅 ${label} — ${fmt(total)}</div>
+            ${Object.entries(byCard).map(([k,v])=>`
+                <div style="margin-bottom:10px">
+                    <div style="font-weight:600;font-size:.9em;margin-bottom:5px">${BANKS[v.items[0].bank]?.name||v.items[0].bank} ${v.items[0].card} — ${fmt(v.total)}</div>
+                    ${v.items.map(e=>`<div class="import-preview-item"><span>${e.description}</span><span>${fmt(e.amount)}</span></div>`).join('')}
+                </div>`).join('')}
+        </div>`;
+    }).join('');
+}
+
+function renderStats(){
+    const te=data.expenses.reduce((s,e)=>s+e.amount,0);
+    const ti=data.incomes.reduce((s,e)=>s+e.amount,0);
+    const byCat={};
+    data.expenses.forEach(e=>{const c=e.category||'Otros';byCat[c]=(byCat[c]||0)+e.amount});
+    document.getElementById('statsSummary').innerHTML=`
+        <div class="stat-card" style="--color-from:#4facfe;--color-to:#00f2fe"><div class="stat-label">💰 Ingresos Total</div><div class="stat-amount">${fmt(ti)}</div></div>
+        <div class="stat-card" style="--color-from:#f093fb;--color-to:#f5576c"><div class="stat-label">➖ Gastos Total</div><div class="stat-amount">${fmt(te)}</div></div>
+        <div class="stat-card" style="--color-from:#667eea;--color-to:#764ba2"><div class="stat-label">⚖️ Balance</div><div class="stat-amount">${fmt(ti-te)}</div></div>
+        <h3 style="margin:20px 0 10px">Por Categoría</h3>
+        ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee">
+                <span style="font-weight:600">${c}</span><span style="color:#f5576c;font-weight:600">${fmt(v)}</span>
+            </div>`).join('')}`;
+}
+
+function renderCardSettings(){
+    document.getElementById('cardSettings').innerHTML=`
+        <h3 style="margin-bottom:15px">Fechas de Vencimiento</h3>
+        ${Object.entries(data.cardConfigs).map(([k,c])=>{
+            const[bank,card]=k.split('-');
+            return`<div class="card-config"><div class="card-config-item">
+                <div><div class="card-config-label">${BANKS[bank]?.name||bank} - ${card}</div>
+                <div class="card-config-value">${c.dueDay?'Día '+c.dueDay+' de cada mes':'No configurado'}</div></div>
+                <button class="card-config-btn" onclick="editCardDueDate('${k}')">Editar</button>
+            </div></div>`;
+        }).join('')}`;
+}
+
+function editCardDueDate(k){
+    currentEditingCard=k;
+    const[bank,card]=k.split('-');
+    document.getElementById('cardSettingsTitle').textContent=`${BANKS[bank]?.name||bank} - ${card}`;
+    document.getElementById('cardDueDayInput').value=data.cardConfigs[k]?.dueDay||'';
+    showModal('cardSettingsModal');
+}
+
+function saveCardDueDate(){
+    const day=parseInt(document.getElementById('cardDueDayInput').value);
+    if(!day||day<1||day>28){alert('Ingresa un día válido (1-28)');return}
+    if(!data.cardConfigs[currentEditingCard])data.cardConfigs[currentEditingCard]={};
+    data.cardConfigs[currentEditingCard].dueDay=day;
+    saveData();renderCardSettings();closeModal('cardSettingsModal');
+}
+
+// ========== PDF IMPORT ==========
+async function processPDF(input){
+    const file=input.files[0];
+    if(!file)return;
+    document.getElementById('importLoading').style.display='block';
+    document.getElementById('importPreview').style.display='none';
+    document.getElementById('importConfirmBtn').style.display='none';
+    try{
+        const ab=await file.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+        let fullText='';
+        for(let i=1;i<=pdf.numPages;i++){
+            const page=await pdf.getPage(i);
+            const tc=await page.getTextContent();
+            fullText+=tc.items.map(it=>it.str).join(' ')+'\n';
+        }
+        const result=parsePDFText(fullText);
+        if(result.items.length===0){alert('No se encontraron consumos en el PDF');document.getElementById('importLoading').style.display='none';return}
+        pendingImport=result.items;
+        showImportPreview(result);
+    }catch(e){
+        alert('Error al leer el PDF: '+e.message);
+    }
+    document.getElementById('importLoading').style.display='none';
+}
+
+function parsePDFText(text){
+    let bank='',card='Visa',vencimiento='',items=[];
+    // Detect bank
+    if(/galicia/i.test(text)){bank='Galicia'}
+    else if(/macro/i.test(text)||/limache/i.test(text)){bank='Macro'}
+    else{bank='Otro'}
+    // Detect card
+    if(/amex|american express/i.test(text))card='Amex';
+    // Detect vencimiento
+    const vtoMatch=text.match(/VENCIMIENTO\s+(\d{2}[\s-]?\w+[\s-]?\d{2,4})/i)||text.match(/Vencimiento actual.*?(\d{2}-\w{3}-\d{2})/i);
+    if(vtoMatch)vencimiento=vtoMatch[1];
+    // Parse consumos
+    if(bank==='Galicia')items=parseGalicia(text);
+    else if(bank==='Macro')items=parseMacro(text);
+    items.forEach(it=>{it.bank=bank;it.card=card;it.category=categorize(it.description)});
+    return{bank,card,vencimiento,items};
+}
+
+function parseGalicia(text){
+    const items=[];
+    // Pattern: DD-MM-YY * DESCRIPTION CUOTA COMPROBANTE AMOUNT
+    const lines=text.split('\n');
+    const fullText=lines.join(' ');
+    // Match fecha + referencia + monto pattern
+    const regex=/(\d{2}-\d{2}-\d{2})\s+[*KF]\s+([\w\s.\-\/,()#:*]+?)\s+(\d{2}\/\d{2}\s+)?(\d{6})\s+([\d.,]+)/g;
+    let match;
+    while((match=regex.exec(fullText))!==null){
+        const dateStr=match[1];
+        const desc=match[2].trim().replace(/\s+/g,' ');
+        const cuotaStr=match[3]?.trim()||'';
+        const amount=parseFloat(match[5].replace(/\./g,'').replace(',','.'));
+        if(amount<=0||isNaN(amount))continue;
+        if(/IIBB|IVA|DB\.RG|PERCEP|DEV\.IMP|SU PAGO|SALDO/i.test(desc))continue;
+        let installment=1,totalInstallments=1;
+        if(cuotaStr){const parts=cuotaStr.split('/');installment=parseInt(parts[0]);totalInstallments=parseInt(parts[1])}
+        const[d,m,y]=dateStr.split('-');
+        const date=`20${y}-${m}-${d}`;
+        items.push({id:Date.now()+Math.random()*10000,description:desc,amount,date,installment,totalInstallments,
+            dueMonth:date.substring(0,7)});
+    }
+    return items;
+}
+
+function parseMacro(text){
+    const items=[];
+    // Macro format: DD Mes YY COMPROBANTE * DESCRIPTION C.XX/YY AMOUNT
+    const regex=/(\d{2}\s+\w+)\s+(\d{2})\s+(\d+)\s+\*\s+([\w\s.*\-\/,()#:]+?)\s+(?:C\.(\d{2})\/(\d{2})\s+)?([\d.,]+)/g;
+    let match;
+    const months={Enero:'01',Febrero:'02',Marzo:'03',Abril:'04',Mayo:'05',Junio:'06',Julio:'07',Agosto:'08',Setiembre:'09',Septiembre:'09',Octubre:'10',Noviembre:'11',Diciembre:'12'};
+    while((match=regex.exec(text))!==null){
+        const dateRaw=match[1];
+        const year='20'+match[2];
+        const desc=match[4].trim().replace(/\s+/g,' ');
+        const amount=parseFloat(match[7].replace(/\./g,'').replace(',','.'));
+        if(amount<=0||isNaN(amount))continue;
+        if(/PAGO EN|SALDO/i.test(desc))continue;
+        let installment=1,totalInstallments=1;
+        if(match[5]){installment=parseInt(match[5]);totalInstallments=parseInt(match[6])}
+        // Parse date
+        const dateParts=dateRaw.split(/\s+/);
+        const day=dateParts[0].padStart(2,'0');
+        const monthName=dateParts[1];
+        const mo=months[monthName]||'01';
+        const date=`${year}-${mo}-${day}`;
+        items.push({id:Date.now()+Math.random()*10000,description:desc,amount,date,installment,totalInstallments,
+            dueMonth:date.substring(0,7)});
+    }
+    return items;
+}
+
+function showImportPreview(result){
+    const preview=document.getElementById('importPreview');
+    const total=result.items.reduce((s,e)=>s+e.amount,0);
+    preview.innerHTML=`
+        <div class="import-header">
+            <div style="font-size:1.2em;font-weight:700">${BANKS[result.bank]?.name||result.bank} ${result.card}</div>
+            <div style="font-size:.85em;opacity:.9">Vto: ${result.vencimiento||'No detectado'}</div>
+            <div style="font-size:1.5em;font-weight:700;margin-top:5px">${fmt(total)}</div>
+            <div style="font-size:.85em">${result.items.length} consumos encontrados</div>
+        </div>
+        ${result.items.map((it,i)=>`
+            <div class="import-preview-item">
+                <div style="flex:1">
+                    <div style="font-weight:600">${it.description}</div>
+                    <div style="font-size:.75em;color:#999">${new Date(it.date).toLocaleDateString('es-AR')} · ${it.category} ${it.totalInstallments>1?`<span class="cuota-badge">${it.installment}/${it.totalInstallments}</span>`:''}</div>
+                </div>
+                <div style="font-weight:600;color:#f5576c">${fmt(it.amount)}</div>
+            </div>`).join('')}`;
+    preview.style.display='block';
+    document.getElementById('importConfirmBtn').style.display='block';
+}
+
+function confirmImport(){
+    if(pendingImport.length===0)return;
+    pendingImport.forEach(item=>{
+        data.expenses.push({...item,type:'expense'});
+    });
+    saveData();updateDashboard();
+    alert(`✅ ${pendingImport.length} gastos importados`);
+    pendingImport=[];
+    closeModal('importModal');
+    document.getElementById('importPreview').style.display='none';
+    document.getElementById('importConfirmBtn').style.display='none';
+    document.getElementById('pdfFile').value='';
+}
+
+function deleteTx(id,type){
+    if(!confirm('¿Eliminar?'))return;
+    if(type==='expense')data.expenses=data.expenses.filter(e=>e.id!=id);
+    else data.incomes=data.incomes.filter(e=>e.id!=id);
+    saveData();updateDashboard();renderTransactions();
+}
+
+function exportData(){
+    let csv='Tipo,Fecha,Descripción,Categoría,Banco,Tarjeta,Cuota,TotalCuotas,MesVto,Monto\n';
+    data.expenses.forEach(e=>{csv+=`Gasto,${e.date},${e.description},${e.category},${e.bank||''},${e.card||''},${e.installment||1},${e.totalInstallments||1},${e.dueMonth||''},${e.amount}\n`});
+    data.incomes.forEach(e=>{csv+=`Ingreso,${e.date},${e.description},${e.category},,,,,,${e.amount}\n`});
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);link.download='mis-finanzas.csv';link.click();
+}
+
+function deleteAllData(){
+    data={version:3,expenses:[],incomes:[],cardConfigs:{
+        'Galicia-Visa':{dueDay:null},'Galicia-Amex':{dueDay:null},
+        'Macro-Visa':{dueDay:null},'Macro-Amex':{dueDay:null},
+        'Santander-Visa':{dueDay:null},'Santander-Amex':{dueDay:null},
+        'Naranja-Naranja':{dueDay:null},'MercadoPago-MP':{dueDay:null}
+    }};saveData();updateDashboard();alert('✓ Datos eliminados');
+}
+
+window.addEventListener('load',init);
+document.querySelectorAll('.modal').forEach(modal=>{
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('active')});
+});
+</script>
 </body>
 </html>
