@@ -237,6 +237,37 @@
         </div>
     </div>
 
+    <!-- MODAL EDITAR -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">✏️ Editar Movimiento</div>
+                <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editId">
+                <input type="hidden" id="editType">
+                <div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-input" id="editAmount" step="0.01"></div>
+                <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" id="editDesc"></div>
+                <div class="form-group"><label class="form-label">Categoría</label>
+                    <select class="form-input" id="editCategory">
+                        <option value="Alimentación">🍔 Alimentación</option><option value="Transporte">🚗 Transporte</option>
+                        <option value="Servicios">💡 Servicios</option><option value="Entretenimiento">🎬 Entretenimiento</option>
+                        <option value="Salud">💊 Salud</option><option value="Otros">📦 Otros</option>
+                        <option value="Sueldo">💼 Sueldo</option><option value="Freelance">💻 Freelance</option>
+                        <option value="Inversiones">📈 Inversiones</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editBankGroup"><label class="form-label">Banco/Tarjeta</label>
+                    <div class="bank-selector" id="editBankSelector"></div>
+                    <div class="card-selector" id="editCardSelector" style="display:none"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="editDate"></div>
+                <button class="btn btn-primary" onclick="saveEdit()">💾 Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -401,6 +432,7 @@ function renderTransactions(){
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                     <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
+                    <button onclick="editTx('${t.id}','${t.type}')" style="background:none;border:none;color:#667eea;cursor:pointer;font-size:1.1em">✏️</button>
                     <button onclick="deleteTx('${t.id}','${t.type}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:1.1em">🗑️</button>
                 </div>
             </div>`).join('');
@@ -646,6 +678,89 @@ function confirmImport(){
     document.getElementById('importPreview').style.display='none';
     document.getElementById('importConfirmBtn').style.display='none';
     document.getElementById('pdfFile').value='';
+}
+
+let editSelectedBank=null,editSelectedCard=null;
+
+function editTx(id,type){
+    let item;
+    if(type==='expense') item=data.expenses.find(e=>e.id==id);
+    else item=data.incomes.find(e=>e.id==id);
+    if(!item)return;
+
+    document.getElementById('editId').value=id;
+    document.getElementById('editType').value=type;
+    document.getElementById('editAmount').value=item.amount;
+    document.getElementById('editDesc').value=item.description;
+    document.getElementById('editCategory').value=item.category||'Otros';
+    document.getElementById('editDate').value=item.date;
+
+    const bankGroup=document.getElementById('editBankGroup');
+    if(type==='expense'){
+        bankGroup.style.display='block';
+        editSelectedBank=item.bank||null;
+        editSelectedCard=item.card||null;
+        renderEditBankSelector();
+    }else{
+        bankGroup.style.display='none';
+        editSelectedBank=null;
+        editSelectedCard=null;
+    }
+    showModal('editModal');
+}
+
+function renderEditBankSelector(){
+    const bs=document.getElementById('editBankSelector');
+    bs.innerHTML=Object.entries(BANKS).map(([k,b])=>
+        `<div class="bank-option ${editSelectedBank===k?'selected':''}" onclick="selectEditBank('${k}')" data-ebank="${k}">${b.name}</div>`
+    ).join('');
+    if(editSelectedBank&&editSelectedCard){
+        const cs=document.getElementById('editCardSelector');
+        cs.style.display='grid';
+        cs.innerHTML=BANKS[editSelectedBank].cards.map(c=>
+            `<div class="card-option ${editSelectedCard===c?'selected':''}" onclick="selectEditCard('${c}')" data-ecard="${c}">💳 ${c}</div>`
+        ).join('');
+    }
+}
+
+function selectEditBank(k){
+    editSelectedBank=k;editSelectedCard=null;
+    document.querySelectorAll('[data-ebank]').forEach(el=>el.classList.remove('selected'));
+    document.querySelector(`[data-ebank="${k}"]`).classList.add('selected');
+    const cs=document.getElementById('editCardSelector');
+    cs.style.display='grid';
+    cs.innerHTML=BANKS[k].cards.map(c=>`<div class="card-option" onclick="selectEditCard('${c}')" data-ecard="${c}">💳 ${c}</div>`).join('');
+}
+
+function selectEditCard(c){
+    editSelectedCard=c;
+    document.querySelectorAll('[data-ecard]').forEach(el=>el.classList.remove('selected'));
+    document.querySelector(`[data-ecard="${c}"]`).classList.add('selected');
+}
+
+function saveEdit(){
+    const id=document.getElementById('editId').value;
+    const type=document.getElementById('editType').value;
+    const amount=parseFloat(document.getElementById('editAmount').value);
+    const desc=document.getElementById('editDesc').value;
+    const category=document.getElementById('editCategory').value;
+    const date=document.getElementById('editDate').value;
+    if(!amount||!desc){alert('Completa monto y descripción');return}
+
+    let list=type==='expense'?data.expenses:data.incomes;
+    const idx=list.findIndex(e=>e.id==id);
+    if(idx===-1)return;
+
+    list[idx].amount=amount;
+    list[idx].description=desc;
+    list[idx].category=category;
+    list[idx].date=date;
+    if(type==='expense'){
+        if(editSelectedBank)list[idx].bank=editSelectedBank;
+        if(editSelectedCard)list[idx].card=editSelectedCard;
+        list[idx].dueMonth=date.substring(0,7);
+    }
+    saveData();updateDashboard();renderTransactions();closeModal('editModal');
 }
 
 function deleteTx(id,type){
