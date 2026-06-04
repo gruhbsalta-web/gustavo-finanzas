@@ -351,78 +351,57 @@ function saveData(){
     syncTimer=setTimeout(()=>syncToCloud(),3000);
 }
 
-async function getGistId(){
-    let gistId=localStorage.getItem('misFinanzasGistId');
-    if(gistId)return gistId;
-    // Search existing gists
+const SYNC_REPO='gruhbsalta-web/gustavo-finanzas';
+
+async function getCloudData(){
     try{
-        const res=await fetch('https://api.github.com/gists?per_page=100',{
-            headers:{'Authorization':'token '+SYNC_TOKEN}
+        const res=await fetch('https://api.github.com/repos/'+SYNC_REPO+'/contents/data.json',{
+            headers:{'Authorization':'token '+SYNC_TOKEN,'Accept':'application/vnd.github.v3+json'}
         });
-        const gists=await res.json();
-        const found=gists.find(g=>g.description==='Mis Finanzas - Sync Data');
-        if(found){localStorage.setItem('misFinanzasGistId',found.id);return found.id}
-    }catch(e){console.error('Gist search error:',e)}
-    // Create new gist
-    try{
-        const res=await fetch('https://api.github.com/gists',{
-            method:'POST',
-            headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
-            body:JSON.stringify({description:'Mis Finanzas - Sync Data',public:false,
-                files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
-        });
-        const gist=await res.json();
-        if(gist.id){localStorage.setItem('misFinanzasGistId',gist.id);return gist.id}
-    }catch(e){console.error('Gist create error:',e)}
-    return null;
+        if(!res.ok)return{data:null,sha:null};
+        const file=await res.json();
+        const content=decodeURIComponent(escape(atob(file.content.replace(/\n/g,''))));
+        return{data:JSON.parse(content),sha:file.sha};
+    }catch(e){console.error('Cloud read error:',e);return{data:null,sha:null}}
 }
 
 async function syncToCloud(){
     try{
-        // No subir si no hay datos locales
         if(data.expenses.length===0&&data.incomes.length===0)return;
-        const gistId=await getGistId();
-        if(!gistId)return;
-        await fetch('https://api.github.com/gists/'+gistId,{
-            method:'PATCH',
+        const cloud=await getCloudData();
+        const content=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+        const body={message:'sync',content,branch:'main'};
+        if(cloud.sha)body.sha=cloud.sha;
+        await fetch('https://api.github.com/repos/'+SYNC_REPO+'/contents/data.json',{
+            method:'PUT',
             headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
-            body:JSON.stringify({files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
+            body:JSON.stringify(body)
         });
         showSyncStatus('✅');
-    }catch(e){console.error('Sync upload error:',e);showSyncStatus('❌')}
+    }catch(e){console.error('Sync up error:',e);showSyncStatus('❌')}
 }
 
 async function syncFromCloud(){
     try{
-        const gistId=await getGistId();
-        if(!gistId)return;
-        const res=await fetch('https://api.github.com/gists/'+gistId,{
-            headers:{'Authorization':'token '+SYNC_TOKEN}
-        });
-        if(!res.ok)return;
-        const gist=await res.json();
-        const content=gist.files?.['mis-finanzas-data.json']?.content;
-        if(!content)return;
-        const remote=JSON.parse(content);
-        const remoteTotal=(remote.expenses?.length||0)+(remote.incomes?.length||0);
+        const cloud=await getCloudData();
+        if(!cloud.data)return;
+        const remoteTotal=(cloud.data.expenses?.length||0)+(cloud.data.incomes?.length||0);
         const localTotal=data.expenses.length+data.incomes.length;
         if(localTotal===0&&remoteTotal>0){
-            // Local vacío, remoto tiene datos → reemplazar
-            data.expenses=remote.expenses||[];
-            data.incomes=remote.incomes||[];
-            if(remote.cardConfigs)data.cardConfigs={...data.cardConfigs,...remote.cardConfigs};
+            data.expenses=cloud.data.expenses||[];
+            data.incomes=cloud.data.incomes||[];
+            if(cloud.data.cardConfigs)data.cardConfigs={...data.cardConfigs,...cloud.data.cardConfigs};
             localStorage.setItem('misFinanzasData',JSON.stringify(data));
         }else if(remoteTotal>0){
-            mergeData(remote);
+            mergeData(cloud.data);
         }
         showSyncStatus('✅');
-    }catch(e){console.error('Sync download error:',e);showSyncStatus('⚠️')}
+    }catch(e){console.error('Sync down error:',e);showSyncStatus('⚠️')}
 }
 
 function mergeData(remote){
     if(!remote)return;
     const localIds=new Set(data.expenses.map(e=>String(e.id)));
-    const remoteIds=new Set((remote.expenses||[]).map(e=>String(e.id)));
     (remote.expenses||[]).forEach(e=>{if(!localIds.has(String(e.id)))data.expenses.push(e)});
     const localIncIds=new Set(data.incomes.map(e=>String(e.id)));
     (remote.incomes||[]).forEach(e=>{if(!localIncIds.has(String(e.id)))data.incomes.push(e)});
@@ -450,35 +429,22 @@ async function manualSync(){
 async function forceDownload(){
     if(!confirm('Esto REEMPLAZA todos los datos locales con los de la nube. ¿Continuar?'))return;
     try{
-        const gistId=await getGistId();
-        if(!gistId){alert('No se encontró datos en la nube');return}
-        const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+SYNC_TOKEN}});
-        const gist=await res.json();
-        const content=gist.files?.['mis-finanzas-data.json']?.content;
-        if(!content){alert('La nube está vacía');return}
-        const remote=JSON.parse(content);
-        data.expenses=remote.expenses||[];
-        data.incomes=remote.incomes||[];
-        if(remote.cardConfigs)data.cardConfigs={...data.cardConfigs,...remote.cardConfigs};
+        const cloud=await getCloudData();
+        if(!cloud.data){alert('La nube está vacía');return}
+        data.expenses=cloud.data.expenses||[];
+        data.incomes=cloud.data.incomes||[];
+        if(cloud.data.cardConfigs)data.cardConfigs={...data.cardConfigs,...cloud.data.cardConfigs};
         localStorage.setItem('misFinanzasData',JSON.stringify(data));
         updateDashboard();
-        alert(`✅ Descargados ${data.expenses.length} gastos y ${data.incomes.length} ingresos`);
+        alert('✅ Descargados '+data.expenses.length+' gastos y '+data.incomes.length+' ingresos');
     }catch(e){alert('Error: '+e.message)}
 }
 
 async function forceUpload(){
     if(data.expenses.length===0&&data.incomes.length===0){alert('No hay datos locales para subir');return}
-    if(!confirm(`Subir ${data.expenses.length} gastos y ${data.incomes.length} ingresos a la nube?`))return;
-    try{
-        const gistId=await getGistId();
-        if(!gistId)return;
-        await fetch('https://api.github.com/gists/'+gistId,{
-            method:'PATCH',
-            headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
-            body:JSON.stringify({files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
-        });
-        alert('✅ Datos subidos a la nube');
-    }catch(e){alert('Error: '+e.message)}
+    if(!confirm('Subir '+data.expenses.length+' gastos y '+data.incomes.length+' ingresos a la nube?'))return;
+    await syncToCloud();
+    alert('✅ Datos subidos a la nube');
 }
 
 function setDefaultDates(){
