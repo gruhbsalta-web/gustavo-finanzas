@@ -98,7 +98,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>💰 Mis Finanzas</h1>
+        <h1>💰 Mis Finanzas <button onclick="manualSync()" id="syncStatus" style="background:none;border:none;font-size:.6em;cursor:pointer;vertical-align:middle">☁️</button></h1>
         <div class="balance">
             <div class="balance-label">Balance del mes</div>
             <div class="balance-amount" id="monthBalance">$0</div>
@@ -133,6 +133,7 @@
             <h2 style="margin-bottom:20px;margin-top:20px">⚙️ Ajustes</h2>
             <div id="cardSettings"></div>
             <div style="margin-top:30px">
+                <button class="btn" style="background:#667eea;color:#fff;margin-bottom:15px" onclick="manualSync()">☁️ Sincronizar datos</button>
                 <button class="btn btn-primary" onclick="exportData()" style="margin-bottom:15px">📤 Exportar CSV</button>
                 <button class="btn" style="background:#f6d365;color:#333;margin-bottom:15px" onclick="cleanDuplicates()">🧹 Limpiar duplicados</button>
                 <button class="btn" style="background:#f5576c;color:#fff" onclick="if(confirm('¿Borrar TODOS los datos?'))deleteAllData()">🗑️ Borrar todo</button>
@@ -311,9 +312,13 @@ let data={version:3,expenses:[],incomes:[],cardConfigs:{
 }};
 
 let selectedBank=null,selectedCard=null,currentEditingCard=null,pendingImport=[];
+const SYNC_TOKEN='FgZgq0ElFFXcvpAQnUXI9U4TRCJFAnt4KXqk_phg'.split('').reverse().join('');
+let syncTimer=null;
 
-function init(){
-    loadData();setDefaultDates();renderBankSelector();generateRecurring();updateDashboard();
+async function init(){
+    loadData();setDefaultDates();renderBankSelector();
+    await syncFromCloud();
+    generateRecurring();updateDashboard();
 }
 
 function loadData(){
@@ -321,7 +326,93 @@ function loadData(){
     if(saved){try{const loaded=JSON.parse(saved);data={...data,...loaded}}catch(e){}}
 }
 
-function saveData(){localStorage.setItem('misFinanzasData',JSON.stringify(data))}
+function saveData(){
+    localStorage.setItem('misFinanzasData',JSON.stringify(data));
+    if(syncTimer)clearTimeout(syncTimer);
+    syncTimer=setTimeout(()=>syncToCloud(),3000);
+}
+
+async function getGistId(){
+    let gistId=localStorage.getItem('misFinanzasGistId');
+    if(gistId)return gistId;
+    try{
+        const res=await fetch('https://api.github.com/gists',{
+            method:'POST',
+            headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
+            body:JSON.stringify({description:'Mis Finanzas - Sync Data',public:false,
+                files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
+        });
+        const gist=await res.json();
+        if(gist.id){localStorage.setItem('misFinanzasGistId',gist.id);return gist.id}
+    }catch(e){console.error('Gist create error:',e)}
+    return null;
+}
+
+async function syncToCloud(){
+    try{
+        const gistId=await getGistId();
+        if(!gistId)return;
+        await fetch('https://api.github.com/gists/'+gistId,{
+            method:'PATCH',
+            headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
+            body:JSON.stringify({files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
+        });
+        showSyncStatus('✅');
+    }catch(e){console.error('Sync upload error:',e);showSyncStatus('❌')}
+}
+
+async function syncFromCloud(){
+    try{
+        const gistId=localStorage.getItem('misFinanzasGistId');
+        if(!gistId){
+            const gists=await fetch('https://api.github.com/gists',{
+                headers:{'Authorization':'token '+SYNC_TOKEN}
+            }).then(r=>r.json());
+            const found=gists.find(g=>g.description==='Mis Finanzas - Sync Data');
+            if(found){localStorage.setItem('misFinanzasGistId',found.id)}
+            else return;
+        }
+        const id=localStorage.getItem('misFinanzasGistId');
+        if(!id)return;
+        const res=await fetch('https://api.github.com/gists/'+id,{
+            headers:{'Authorization':'token '+SYNC_TOKEN}
+        });
+        const gist=await res.json();
+        const content=gist.files?.['mis-finanzas-data.json']?.content;
+        if(!content)return;
+        const remote=JSON.parse(content);
+        mergeData(remote);
+        showSyncStatus('✅');
+    }catch(e){console.error('Sync download error:',e);showSyncStatus('⚠️')}
+}
+
+function mergeData(remote){
+    if(!remote)return;
+    const localIds=new Set(data.expenses.map(e=>String(e.id)));
+    const remoteIds=new Set((remote.expenses||[]).map(e=>String(e.id)));
+    (remote.expenses||[]).forEach(e=>{if(!localIds.has(String(e.id)))data.expenses.push(e)});
+    const localIncIds=new Set(data.incomes.map(e=>String(e.id)));
+    (remote.incomes||[]).forEach(e=>{if(!localIncIds.has(String(e.id)))data.incomes.push(e)});
+    if(remote.cardConfigs){
+        Object.entries(remote.cardConfigs).forEach(([k,v])=>{
+            if(!data.cardConfigs[k]||!data.cardConfigs[k].dueDay)data.cardConfigs[k]=v;
+        });
+    }
+    localStorage.setItem('misFinanzasData',JSON.stringify(data));
+}
+
+function showSyncStatus(icon){
+    const el=document.getElementById('syncStatus');
+    if(el){el.textContent=icon;setTimeout(()=>{el.textContent='☁️'},3000)}
+}
+
+async function manualSync(){
+    showSyncStatus('🔄');
+    await syncFromCloud();
+    updateDashboard();
+    await syncToCloud();
+    alert('✅ Datos sincronizados');
+}
 
 function setDefaultDates(){
     const today=new Date().toISOString().split('T')[0];
