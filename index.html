@@ -335,6 +335,16 @@ function saveData(){
 async function getGistId(){
     let gistId=localStorage.getItem('misFinanzasGistId');
     if(gistId)return gistId;
+    // Search existing gists
+    try{
+        const res=await fetch('https://api.github.com/gists?per_page=100',{
+            headers:{'Authorization':'token '+SYNC_TOKEN}
+        });
+        const gists=await res.json();
+        const found=gists.find(g=>g.description==='Mis Finanzas - Sync Data');
+        if(found){localStorage.setItem('misFinanzasGistId',found.id);return found.id}
+    }catch(e){console.error('Gist search error:',e)}
+    // Create new gist
     try{
         const res=await fetch('https://api.github.com/gists',{
             method:'POST',
@@ -363,20 +373,12 @@ async function syncToCloud(){
 
 async function syncFromCloud(){
     try{
-        const gistId=localStorage.getItem('misFinanzasGistId');
-        if(!gistId){
-            const gists=await fetch('https://api.github.com/gists',{
-                headers:{'Authorization':'token '+SYNC_TOKEN}
-            }).then(r=>r.json());
-            const found=gists.find(g=>g.description==='Mis Finanzas - Sync Data');
-            if(found){localStorage.setItem('misFinanzasGistId',found.id)}
-            else return;
-        }
-        const id=localStorage.getItem('misFinanzasGistId');
-        if(!id)return;
-        const res=await fetch('https://api.github.com/gists/'+id,{
+        const gistId=await getGistId();
+        if(!gistId)return;
+        const res=await fetch('https://api.github.com/gists/'+gistId,{
             headers:{'Authorization':'token '+SYNC_TOKEN}
         });
+        if(!res.ok)return;
         const gist=await res.json();
         const content=gist.files?.['mis-finanzas-data.json']?.content;
         if(!content)return;
@@ -964,7 +966,12 @@ function deleteAllData(){
     }};saveData();updateDashboard();alert('✓ Datos eliminados');
 }
 
-window.addEventListener('load',init);
+window.addEventListener('load',()=>{
+    init();
+    if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('./sw.js').catch(e=>console.log('SW error:',e));
+    }
+});
 document.querySelectorAll('.modal').forEach(modal=>{
     modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('active')});
 });
