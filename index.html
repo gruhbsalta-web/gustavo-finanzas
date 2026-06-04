@@ -231,9 +231,26 @@
                 <div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-input" id="incomeAmount" placeholder="0.00" step="0.01"></div>
                 <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" id="incomeDesc" placeholder="¿De dónde viene?"></div>
                 <div class="form-group"><label class="form-label">Categoría</label>
-                    <select class="form-input" id="incomeCategory">
+                    <select class="form-input" id="incomeCategory" onchange="toggleIncomeBank()">
                         <option value="Sueldo">💼 Sueldo</option><option value="Freelance">💻 Freelance</option>
-                        <option value="Inversiones">📈 Inversiones</option><option value="Otros">💰 Otros</option>
+                        <option value="Saldo Bancario">🏦 Saldo Bancario</option><option value="Inversiones">📈 Inversiones</option>
+                        <option value="Otros">💰 Otros</option>
+                    </select>
+                </div>
+                <div class="form-group" id="incomeBankGroup" style="display:none">
+                    <label class="form-label">Banco</label>
+                    <select class="form-input" id="incomeBank">
+                        <option value="">Seleccionar banco...</option>
+                        <option value="Galicia">🏦 Galicia</option>
+                        <option value="Macro">🏦 Macro</option>
+                        <option value="Santander">🏦 Santander</option>
+                        <option value="MercadoPago">💳 Mercado Pago</option>
+                        <option value="Otro">🏦 Otro</option>
+                    </select>
+                </div>
+                <div class="form-group"><label class="form-label">Moneda</label>
+                    <select class="form-input" id="incomeCurrency">
+                        <option value="ARS">$ Pesos</option><option value="USD">U$S Dólares</option>
                     </select>
                 </div>
                 <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="incomeDate"></div>
@@ -279,7 +296,7 @@
                         <option value="Servicios">💡 Servicios</option><option value="Entretenimiento">🎬 Entretenimiento</option>
                         <option value="Salud">💊 Salud</option><option value="Otros">📦 Otros</option>
                         <option value="Sueldo">💼 Sueldo</option><option value="Freelance">💻 Freelance</option>
-                        <option value="Inversiones">📈 Inversiones</option>
+                        <option value="Saldo Bancario">🏦 Saldo Bancario</option><option value="Inversiones">📈 Inversiones</option>
                     </select>
                 </div>
                 <div class="form-group" id="editBankGroup"><label class="form-label">Banco/Tarjeta</label>
@@ -503,15 +520,26 @@ function saveExpense(){
     selectedBank=null;selectedCard=null;
 }
 
+function toggleIncomeBank(){
+    const cat=document.getElementById('incomeCategory').value;
+    document.getElementById('incomeBankGroup').style.display=
+        (cat==='Saldo Bancario'||cat==='Inversiones')?'block':'none';
+}
+
 function saveIncome(){
     const amount=parseFloat(document.getElementById('incomeAmount').value);
     const desc=document.getElementById('incomeDesc').value;
     const category=document.getElementById('incomeCategory').value;
     const date=document.getElementById('incomeDate').value;
+    const currency=document.getElementById('incomeCurrency').value;
+    const bank=document.getElementById('incomeBank').value;
     if(!amount||!desc){alert('Completa todos los campos');return}
-    data.incomes.push({id:Date.now(),type:'income',amount,description:desc,category,date});
+    data.incomes.push({id:Date.now(),type:'income',amount,description:desc,category,date,currency:currency||'ARS',bank:bank||''});
     saveData();updateDashboard();closeModal('incomeModal');
-    document.getElementById('incomeAmount').value='';document.getElementById('incomeDesc').value='';setDefaultDates();
+    document.getElementById('incomeAmount').value='';document.getElementById('incomeDesc').value='';
+    document.getElementById('incomeCurrency').value='ARS';document.getElementById('incomeBank').value='';
+    document.getElementById('incomeBankGroup').style.display='none';document.getElementById('incomeCategory').value='Sueldo';
+    setDefaultDates();
 }
 
 function updateDashboard(){
@@ -533,9 +561,9 @@ function renderRecent(){
             <div class="transaction-item">
                 <div class="transaction-info">
                     <div class="transaction-desc">${t.description}</div>
-                    <div class="transaction-meta">${t.bank?BANKS[t.bank]?.name||t.bank:''} ${t.card||''} · ${new Date(t.date).toLocaleDateString('es-AR')}</div>
+                    <div class="transaction-meta">${t.category||''} · ${t.bank?BANKS[t.bank]?.name||t.bank:''} ${t.card||''} · ${new Date(t.date).toLocaleDateString('es-AR')}</div>
                 </div>
-                <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
+                <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount,t.currency)}</div>
             </div>`).join('');
 }
 
