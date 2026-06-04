@@ -194,12 +194,19 @@
                     </select>
                 </div>
                 <div class="form-group"><label class="form-label">Banco/Tarjeta</label><div class="bank-selector" id="bankSelector"></div><div class="card-selector" id="cardSelector" style="display:none"></div></div>
-                <div class="form-group"><label class="form-label">Cuotas</label>
-                    <select class="form-input" id="expenseInstallments">
-                        <option value="1">1 cuota (contado)</option><option value="2">2 cuotas</option><option value="3">3 cuotas</option>
-                        <option value="6">6 cuotas</option><option value="9">9 cuotas</option><option value="12">12 cuotas</option>
-                        <option value="18">18 cuotas</option><option value="24">24 cuotas</option>
-                    </select>
+                <div style="display:flex;gap:10px">
+                    <div class="form-group" style="flex:1"><label class="form-label">Moneda</label>
+                        <select class="form-input" id="expenseCurrency">
+                            <option value="ARS">$ Pesos</option><option value="USD">U$S Dólares</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1"><label class="form-label">Cuotas</label>
+                        <select class="form-input" id="expenseInstallments">
+                            <option value="1">1 (contado)</option><option value="2">2 cuotas</option><option value="3">3 cuotas</option>
+                            <option value="6">6 cuotas</option><option value="9">9 cuotas</option><option value="12">12 cuotas</option>
+                            <option value="18">18 cuotas</option><option value="24">24 cuotas</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-input" id="expenseDate"></div>
                 <div class="form-group" style="display:flex;align-items:center;gap:10px">
@@ -258,6 +265,11 @@
                 <input type="hidden" id="editId">
                 <input type="hidden" id="editType">
                 <div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-input" id="editAmount" step="0.01"></div>
+                <div class="form-group"><label class="form-label">Moneda</label>
+                    <select class="form-input" id="editCurrency">
+                        <option value="ARS">$ Pesos</option><option value="USD">U$S Dólares</option>
+                    </select>
+                </div>
                 <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" id="editDesc"></div>
                 <div class="form-group"><label class="form-label">Categoría</label>
                     <select class="form-input" id="editCategory">
@@ -316,7 +328,7 @@ function setDefaultDates(){
     document.getElementById('incomeDate').value=today;
 }
 
-function fmt(n){return '$'+n.toLocaleString('es-AR',{minimumFractionDigits:2})}
+function fmt(n,cur){return (cur==='USD'?'U$S ':'$')+n.toLocaleString('es-AR',{minimumFractionDigits:2})}
 
 function renderBankSelector(){
     document.getElementById('bankSelector').innerHTML=Object.entries(BANKS).map(([k,b])=>
@@ -374,6 +386,7 @@ function saveExpense(){
     const date=document.getElementById('expenseDate').value;
     const installments=parseInt(document.getElementById('expenseInstallments').value)||1;
     const isRecurring=document.getElementById('expenseRecurring').checked;
+    const currency=document.getElementById('expenseCurrency').value;
     if(!amount||!desc||!selectedBank||!selectedCard){alert('Completa todos los campos');return}
     const cuotaAmount=Math.round(amount/installments*100)/100;
     for(let i=0;i<installments;i++){
@@ -385,12 +398,13 @@ function saveExpense(){
             category,date,bank:selectedBank,card:selectedCard,
             installment:i+1,totalInstallments:installments,
             dueMonth:dueDate.toISOString().substring(0,7),
-            isPaid:false,isRecurring
+            isPaid:false,isRecurring,currency:currency||'ARS'
         });
     }
     saveData();updateDashboard();closeModal('expenseModal');
     document.getElementById('expenseAmount').value='';document.getElementById('expenseDesc').value='';
     document.getElementById('expenseInstallments').value='1';document.getElementById('expenseRecurring').checked=false;
+    document.getElementById('expenseCurrency').value='ARS';
     setDefaultDates();renderBankSelector();document.getElementById('cardSelector').style.display='none';
     selectedBank=null;selectedCard=null;
 }
@@ -444,7 +458,7 @@ function renderTransactions(){
                     <div class="transaction-meta">${t.category||''} · ${t.bank?BANKS[t.bank]?.name||t.bank:''} ${t.card||''}<br>${new Date(t.date).toLocaleDateString('es-AR')}${t.dueMonth?' · Vence: '+t.dueMonth:''}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
-                    <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount)}</div>
+                    <div class="transaction-amount" style="color:${t.type==='expense'?'#f5576c':'#00c9a7'}">${t.type==='expense'?'-':'+'} ${fmt(t.amount,t.currency)}</div>
                     <button onclick="editTx('${t.id}','${t.type}')" style="background:none;border:none;color:#667eea;cursor:pointer;font-size:1.1em">✏️</button>
                     <button onclick="deleteTx('${t.id}','${t.type}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:1.1em">🗑️</button>
                 </div>
@@ -453,14 +467,14 @@ function renderTransactions(){
 
 function renderProjection(){
     const months={};
-    data.expenses.filter(e=>e.totalInstallments>1).forEach(e=>{
+    data.expenses.filter(e=>!e.isPaid).forEach(e=>{
         const m=e.dueMonth||e.date.substring(0,7);
         if(!months[m])months[m]=[];
         months[m].push(e);
     });
     const sorted=Object.keys(months).sort();
     if(sorted.length===0){
-        document.getElementById('projectionSummary').innerHTML='<div class="empty-state"><div class="empty-icon">📅</div>No hay cuotas pendientes<br><small>Agrega un gasto en cuotas o importa un resumen</small></div>';
+        document.getElementById('projectionSummary').innerHTML='<div class="empty-state"><div class="empty-icon">📅</div>No hay gastos pendientes<br><small>Agrega un gasto o importa un resumen</small></div>';
         return;
     }
     const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -476,7 +490,7 @@ function renderProjection(){
             ${Object.entries(byCard).map(([k,v])=>`
                 <div style="margin-bottom:10px">
                     <div style="font-weight:600;font-size:.9em;margin-bottom:5px">${BANKS[v.items[0].bank]?.name||v.items[0].bank} ${v.items[0].card} — ${fmt(v.total)}</div>
-                    ${v.items.map(e=>`<div class="import-preview-item"><span>${e.description}</span><span>${fmt(e.amount)}</span></div>`).join('')}
+                    ${v.items.map(e=>`<div class="import-preview-item"><span>${e.description}</span><span>${fmt(e.amount,e.currency)}</span></div>`).join('')}
                 </div>`).join('')}
         </div>`;
     }).join('');
@@ -735,6 +749,7 @@ function editTx(id,type){
     document.getElementById('editId').value=id;
     document.getElementById('editType').value=type;
     document.getElementById('editAmount').value=item.amount;
+    document.getElementById('editCurrency').value=item.currency||'ARS';
     document.getElementById('editDesc').value=item.description;
     document.getElementById('editCategory').value=item.category||'Otros';
     document.getElementById('editDate').value=item.date;
@@ -789,6 +804,7 @@ function saveEdit(){
     const desc=document.getElementById('editDesc').value;
     const category=document.getElementById('editCategory').value;
     const date=document.getElementById('editDate').value;
+    const currency=document.getElementById('editCurrency').value;
     if(!amount||!desc){alert('Completa monto y descripción');return}
 
     let list=type==='expense'?data.expenses:data.incomes;
@@ -799,6 +815,7 @@ function saveEdit(){
     list[idx].description=desc;
     list[idx].category=category;
     list[idx].date=date;
+    list[idx].currency=currency;
     if(type==='expense'){
         if(editSelectedBank)list[idx].bank=editSelectedBank;
         if(editSelectedCard)list[idx].card=editSelectedCard;
