@@ -134,6 +134,7 @@
             <div id="cardSettings"></div>
             <div style="margin-top:30px">
                 <button class="btn btn-primary" onclick="exportData()" style="margin-bottom:15px">📤 Exportar CSV</button>
+                <button class="btn" style="background:#f6d365;color:#333;margin-bottom:15px" onclick="cleanDuplicates()">🧹 Limpiar duplicados</button>
                 <button class="btn" style="background:#f5576c;color:#fff" onclick="if(confirm('¿Borrar TODOS los datos?'))deleteAllData()">🗑️ Borrar todo</button>
             </div>
         </div>
@@ -695,16 +696,39 @@ function showImportPreview(result){
 
 function confirmImport(){
     if(pendingImport.length===0)return;
+    let imported=0,skipped=0;
     pendingImport.forEach(item=>{
-        data.expenses.push({...item,type:'expense'});
+        const isDup=data.expenses.some(e=>
+            e.description===item.description&&
+            Math.abs(e.amount-item.amount)<0.01&&
+            e.bank===item.bank&&
+            e.dueMonth===item.dueMonth
+        );
+        if(!isDup){
+            data.expenses.push({...item,type:'expense',isPaid:false});
+            imported++;
+        }else{skipped++}
     });
     saveData();updateDashboard();
-    alert(`✅ ${pendingImport.length} gastos importados`);
+    alert(`✅ ${imported} gastos importados${skipped>0?' ('+skipped+' duplicados omitidos)':''}`);
     pendingImport=[];
     closeModal('importModal');
     document.getElementById('importPreview').style.display='none';
     document.getElementById('importConfirmBtn').style.display='none';
     document.getElementById('pdfFile').value='';
+}
+
+function cleanDuplicates(){
+    const seen=new Set();
+    const before=data.expenses.length;
+    data.expenses=data.expenses.filter(e=>{
+        const key=`${e.description}|${e.amount}|${e.bank}|${e.dueMonth}`;
+        if(seen.has(key))return false;
+        seen.add(key);return true;
+    });
+    const removed=before-data.expenses.length;
+    saveData();updateDashboard();
+    alert(removed>0?`✅ ${removed} duplicados eliminados`:'No se encontraron duplicados');
 }
 
 function togglePaid(id){
