@@ -369,16 +369,20 @@ async function syncToCloud(){
     try{
         if(data.expenses.length===0&&data.incomes.length===0)return;
         const cloud=await getCloudData();
-        const content=btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-        const body={message:'sync',content,branch:'main'};
+        const jsonStr=JSON.stringify(data);
+        const content=btoa(unescape(encodeURIComponent(jsonStr)));
+        const body={message:'sync '+new Date().toISOString(),content,branch:'main'};
         if(cloud.sha)body.sha=cloud.sha;
-        await fetch('https://api.github.com/repos/'+SYNC_REPO+'/contents/data.json',{
+        const res=await fetch('https://api.github.com/repos/'+SYNC_REPO+'/contents/data.json',{
             method:'PUT',
             headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
             body:JSON.stringify(body)
         });
-        showSyncStatus('✅');
-    }catch(e){console.error('Sync up error:',e);showSyncStatus('❌')}
+        const result=await res.json();
+        if(res.ok){showSyncStatus('✅')}
+        else{console.error('Sync error:',result);showSyncStatus('❌')}
+        return res.ok;
+    }catch(e){console.error('Sync up error:',e);showSyncStatus('❌');return false}
 }
 
 async function syncFromCloud(){
@@ -443,8 +447,9 @@ async function forceDownload(){
 async function forceUpload(){
     if(data.expenses.length===0&&data.incomes.length===0){alert('No hay datos locales para subir');return}
     if(!confirm('Subir '+data.expenses.length+' gastos y '+data.incomes.length+' ingresos a la nube?'))return;
-    await syncToCloud();
-    alert('✅ Datos subidos a la nube');
+    const ok=await syncToCloud();
+    if(ok)alert('✅ Datos subidos a la nube');
+    else alert('❌ Error al subir. Abrí la consola del navegador (F12) para ver detalles.');
 }
 
 function setDefaultDates(){
