@@ -133,7 +133,9 @@
             <h2 style="margin-bottom:20px;margin-top:20px">⚙️ Ajustes</h2>
             <div id="cardSettings"></div>
             <div style="margin-top:30px">
-                <button class="btn" style="background:#667eea;color:#fff;margin-bottom:15px" onclick="manualSync()">☁️ Sincronizar datos</button>
+                <button class="btn" style="background:#667eea;color:#fff;margin-bottom:10px" onclick="manualSync()">☁️ Sincronizar datos</button>
+                <button class="btn" style="background:#4facfe;color:#fff;margin-bottom:10px" onclick="forceDownload()">⬇️ Descargar de la nube (reemplaza local)</button>
+                <button class="btn" style="background:#00c9a7;color:#fff;margin-bottom:15px" onclick="forceUpload()">⬆️ Subir a la nube (reemplaza nube)</button>
                 <button class="btn btn-primary" onclick="exportData()" style="margin-bottom:15px">📤 Exportar CSV</button>
                 <button class="btn" style="background:#f6d365;color:#333;margin-bottom:15px" onclick="cleanDuplicates()">🧹 Limpiar duplicados</button>
                 <button class="btn" style="background:#f5576c;color:#fff" onclick="if(confirm('¿Borrar TODOS los datos?'))deleteAllData()">🗑️ Borrar todo</button>
@@ -377,6 +379,8 @@ async function getGistId(){
 
 async function syncToCloud(){
     try{
+        // No subir si no hay datos locales
+        if(data.expenses.length===0&&data.incomes.length===0)return;
         const gistId=await getGistId();
         if(!gistId)return;
         await fetch('https://api.github.com/gists/'+gistId,{
@@ -400,7 +404,17 @@ async function syncFromCloud(){
         const content=gist.files?.['mis-finanzas-data.json']?.content;
         if(!content)return;
         const remote=JSON.parse(content);
-        mergeData(remote);
+        const remoteTotal=(remote.expenses?.length||0)+(remote.incomes?.length||0);
+        const localTotal=data.expenses.length+data.incomes.length;
+        if(localTotal===0&&remoteTotal>0){
+            // Local vacío, remoto tiene datos → reemplazar
+            data.expenses=remote.expenses||[];
+            data.incomes=remote.incomes||[];
+            if(remote.cardConfigs)data.cardConfigs={...data.cardConfigs,...remote.cardConfigs};
+            localStorage.setItem('misFinanzasData',JSON.stringify(data));
+        }else if(remoteTotal>0){
+            mergeData(remote);
+        }
         showSyncStatus('✅');
     }catch(e){console.error('Sync download error:',e);showSyncStatus('⚠️')}
 }
@@ -429,8 +443,42 @@ async function manualSync(){
     showSyncStatus('🔄');
     await syncFromCloud();
     updateDashboard();
-    await syncToCloud();
+    if(data.expenses.length>0||data.incomes.length>0)await syncToCloud();
     alert('✅ Datos sincronizados');
+}
+
+async function forceDownload(){
+    if(!confirm('Esto REEMPLAZA todos los datos locales con los de la nube. ¿Continuar?'))return;
+    try{
+        const gistId=await getGistId();
+        if(!gistId){alert('No se encontró datos en la nube');return}
+        const res=await fetch('https://api.github.com/gists/'+gistId,{headers:{'Authorization':'token '+SYNC_TOKEN}});
+        const gist=await res.json();
+        const content=gist.files?.['mis-finanzas-data.json']?.content;
+        if(!content){alert('La nube está vacía');return}
+        const remote=JSON.parse(content);
+        data.expenses=remote.expenses||[];
+        data.incomes=remote.incomes||[];
+        if(remote.cardConfigs)data.cardConfigs={...data.cardConfigs,...remote.cardConfigs};
+        localStorage.setItem('misFinanzasData',JSON.stringify(data));
+        updateDashboard();
+        alert(`✅ Descargados ${data.expenses.length} gastos y ${data.incomes.length} ingresos`);
+    }catch(e){alert('Error: '+e.message)}
+}
+
+async function forceUpload(){
+    if(data.expenses.length===0&&data.incomes.length===0){alert('No hay datos locales para subir');return}
+    if(!confirm(`Subir ${data.expenses.length} gastos y ${data.incomes.length} ingresos a la nube?`))return;
+    try{
+        const gistId=await getGistId();
+        if(!gistId)return;
+        await fetch('https://api.github.com/gists/'+gistId,{
+            method:'PATCH',
+            headers:{'Authorization':'token '+SYNC_TOKEN,'Content-Type':'application/json'},
+            body:JSON.stringify({files:{'mis-finanzas-data.json':{content:JSON.stringify(data)}}})
+        });
+        alert('✅ Datos subidos a la nube');
+    }catch(e){alert('Error: '+e.message)}
 }
 
 function setDefaultDates(){
